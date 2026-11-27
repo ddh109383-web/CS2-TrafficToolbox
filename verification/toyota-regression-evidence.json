@@ -1,0 +1,35 @@
+{
+  "Vehicle": 81333,
+  "OccupiedLane": {
+    "Entity": {
+      "Index": 758833,
+      "Version": 1
+    },
+    "Start": "0013C75600000103",
+    "Middle": "0013C75600000101",
+    "End": "0013C75600000004",
+    "Flags": "Unsafe, UTurnLeft, ForbidPassing",
+    "Methods": "Road, Bicycle",
+    "Slave": {
+      "m_Group": 33751554,
+      "m_MinIndex": 5,
+      "m_MaxIndex": 7,
+      "m_SubIndex": 6,
+      "Flags": "MultipleLanes, MergingLane, OpenEndRight"
+    },
+    "Master": null,
+    "EdgeLane": false,
+    "NodeLane": true,
+    "Owner": 1296214,
+    "IsEdge": false
+  },
+  "VerifiedExit": [
+    758833,
+    1673728
+  ],
+  "RecordFrames": [
+    2183,
+    2817
+  ],
+  "LiveVerified": false
+}

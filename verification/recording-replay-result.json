@@ -1,0 +1,11 @@
+{
+  "Status": "PASS",
+  "Frames": 308,
+  "VehicleSnapshots": 10810,
+  "PathDefinitions": 109,
+  "LaneDefinitions": 3080,
+  "OriginalBytes": 278209208,
+  "DeltaBytes": 19206262,
+  "ReductionPercent": 93.1,
+  "Scope": "Lossless offline format replay; excludes new signal fields, not a live runtime benchmark"
+}

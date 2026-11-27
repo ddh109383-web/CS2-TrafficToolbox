@@ -1,0 +1,147 @@
+{
+  "Source": "RoadLaneLock-vehicles-20261117-141617-453-8ca26d.jsonl",
+  "StationarySeconds": 2448.6737154999996,
+  "Vehicle": {
+    "Kind": "vehicle",
+    "Sequence": 61438,
+    "Entity": {
+      "Index": 1746961,
+      "Version": 1
+    },
+    "VehicleTypes": [
+      "Blocker",
+      "CarCurrentLane",
+      "PersonalCar",
+      "Car",
+      "CarNavigation",
+      "CarNavigationLane",
+      "Passenger",
+      "Vehicle",
+      "Bicycle"
+    ],
+    "CarFlags": "0",
+    "MaintenanceState": null,
+    "GarbageState": null,
+    "Signal": null,
+    "BlockedBy": {
+      "Index": 0,
+      "Version": 0
+    },
+    "Deleted": false,
+    "Position": [
+      -124.464485,
+      531.746643,
+      -285.0816
+    ],
+    "Velocity": [
+      3.41129853e-05,
+      0.000215683409,
+      -0.000136451941
+    ],
+    "Lane": {
+      "Index": 294976,
+      "Version": 1
+    },
+    "ChangeLane": {
+      "Index": 0,
+      "Version": 0
+    },
+    "ChangeProgress": 0.0,
+    "Flags": "EndReached, EnteringRoad, Obsolete, Reserved, FixedLane, TurnRight",
+    "Curve": [
+      0.8997508,
+      0.8997508,
+      0.8997508
+    ],
+    "Path": {
+      "State": "0",
+      "Index": 0
+    },
+    "Navigation": [],
+    "PathRevision": 1
+  },
+  "Lane": {
+    "Kind": "lane",
+    "Sequence": 1,
+    "Entity": {
+      "Index": 294976,
+      "Version": 1
+    },
+    "Owner": {
+      "Index": 1637331,
+      "Version": 1
+    },
+    "Start": "001DC54500000400",
+    "Middle": "0018FBD30000FFFF",
+    "End": "0018FBD37ED00202",
+    "Flags": "Unsafe, SideConnection, TurnRight, Yield, SecondaryStart",
+    "Curve": {
+      "Length": 12.5804462,
+      "A": [
+        -121.855141,
+        531.7041,
+        -274.6553
+      ],
+      "B": [
+        -121.850479,
+        529.91394,
+        -278.620972
+      ],
+      "C": [
+        -121.842171,
+        531.757446,
+        -285.6941
+      ],
+      "D": [
+        -125.164337,
+        531.8114,
+        -285.697754
+      ]
+    }
+  },
+  "Detour": {
+    "Vehicle": {
+      "Index": 1746961,
+      "Version": 1
+    },
+    "ExitIndex": 5,
+    "Lanes": [
+      {
+        "Index": 218639,
+        "Version": 1
+      },
+      {
+        "Index": 1909348,
+        "Version": 1
+      },
+      {
+        "Index": 221163,
+        "Version": 1
+      },
+      {
+        "Index": 219050,
+        "Version": 1
+      },
+      {
+        "Index": 2003442,
+        "Version": 1
+      },
+      {
+        "Index": 1562580,
+        "Version": 1
+      },
+      {
+        "Index": 208273,
+        "Version": 1
+      },
+      {
+        "Index": 1563211,
+        "Version": 1
+      },
+      {
+        "Index": 1563208,
+        "Version": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion><Version>0.3.5-alpha</Version>
+  <NoStdLib>true</NoStdLib><DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+  <ManagedPath>$([System.Environment]::GetEnvironmentVariable('CSII_MANAGEDPATH', 'EnvironmentVariableTarget.User'))</ManagedPath><FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
+  <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+ </PropertyGroup>
+ <ItemGroup><Compile Include="core/RecordingWindow.cs;core/NavigationSafety.cs;core/ServiceFallback.cs;src/VehicleRecorder.cs;src/Mod.cs;src/SignHardware.cs;src/Diagnostics.cs;src/StreetNameSigns.cs;src/ParkingSystem.cs;src/ParkingUI.cs;src/ParkingSigns.cs;src/RoadMarkings.cs;src/DirectionMarkers.cs;src/RuleUISystem.cs;src/PaletteSystem.cs;src/TransitOverview.cs;src/TransitNaming.cs;src/TransitSettings.cs;src/StreetNames.cs;src/PanelExtras.cs;src/LaneControlPanel.cs;src/JamReliefPanel.cs;src/TrafficInfo.cs;src/RoadInspector.cs;src/RoadPickTool.cs;src/RoadRuleService.cs;src/RuntimeCoordinator.cs;src/Setting.cs;src/Localization.cs;src/RoadRules.cs;src/RuleMarkings.cs;src/LaneRulesPanel.cs;src/TrafficInsights.cs;src/TrafficLive.cs;src/LaneHookSystem.cs;experimental/NavigationCandidate.cs;experimental/NativeHorizonPlanner.cs;experimental/StrictSelectIterator.cs;experimental/DetourExecution.cs;experimental/ExecutionState.cs;experimental/CongestionMonitor.cs;experimental/EmergencyTraffic.cs"/><Reference Include="$(ManagedPath)\*.dll"><Private>false</Private></Reference></ItemGroup>
+ <ItemGroup><EmbeddedResource Include="ui/Paint-*.png;ui/Monitor-sign.png;ui/Parking-*.png"><LogicalName>%(Filename)</LogicalName></EmbeddedResource></ItemGroup>
+ <ItemGroup><EmbeddedResource Include="lang/*.json"><LogicalName>lang-%(Filename)</LogicalName></EmbeddedResource></ItemGroup>
+</Project>
+
+
+
+
+
+
+
+
+
+

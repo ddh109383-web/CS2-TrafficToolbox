@@ -1,0 +1,16 @@
+{
+  "Version": "0.2.8-alpha",
+  "NativeSelectorExecutableCodeEquivalent": true,
+  "ExemptComponents": [
+    "MaintenanceVehicle",
+    "GarbageTruck",
+    "PostVan",
+    "Ambulance",
+    "FireEngine",
+    "PoliceCar",
+    "Hearse"
+  ],
+  "PolicyChecks": 778,
+  "UICommandTests": "PASS",
+  "LiveVerified": false
+}

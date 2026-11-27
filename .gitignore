@@ -1,0 +1,16 @@
+# Build output
+bin/
+obj/
+**/bin/
+**/obj/
+Library/
+*.pdb
+.vs/
+node_modules/
+
+# Local working files (installed backups, captures)
+work/
+
+# Internal hand-over notes with local machine paths
+CODEX-HANDOFF.md
+HANDOFF-*.md

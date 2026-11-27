@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net48</TargetFramework><LangVersion>9.0</LangVersion><OutputType>Exe</OutputType><NoStdLib>true</NoStdLib><DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><ManagedPath>$([System.Environment]::GetEnvironmentVariable('CSII_MANAGEDPATH', 'EnvironmentVariableTarget.User'))</ManagedPath><FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride></PropertyGroup>
+ <ItemGroup><Compile Include="../src/CompositionPlan.cs" Link="CompositionPlan.cs"/><Reference Include="$(ManagedPath)\*.dll"><Private>false</Private></Reference></ItemGroup>
+</Project>

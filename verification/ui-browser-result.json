@@ -1,0 +1,15 @@
+{
+  "Status": "PASS",
+  "Checks": [
+    "selection hint",
+    "popup bounds",
+    "rule toggle",
+    "diagnostic export",
+    "drag",
+    "close preserves recording",
+    "stop while picking",
+    "resize and expanded bounds",
+    "Escape"
+  ],
+  "Runtime": "Standalone Chromium with React; game integration not live-tested"
+}

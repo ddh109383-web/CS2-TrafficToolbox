@@ -1,0 +1,21 @@
+{
+  "Source": "20261115-150119-715-f5806d; frames 4900-4911,5357,10850",
+  "VerifiedPhysicalExit": [
+    1390727,
+    123090,
+    123919
+  ],
+  "MissingSuccessorOwner": 215212,
+  "OldCollectedOwners": [
+    136764,
+    1807032,
+    2186938
+  ],
+  "BoundaryNode": 136764,
+  "MidroadReversal": [
+    117660,
+    123132
+  ],
+  "DirectionDot": -0.999999999993465,
+  "LiveVerified": false
+}

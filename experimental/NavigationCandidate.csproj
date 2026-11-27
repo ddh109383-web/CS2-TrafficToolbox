@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion><Version>0.2.0-preview</Version>
+  <NoStdLib>true</NoStdLib><DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+  <ManagedPath>$([System.Environment]::GetEnvironmentVariable('CSII_MANAGEDPATH', 'EnvironmentVariableTarget.User'))</ManagedPath><FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
+  <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+ </PropertyGroup>
+ <ItemGroup><Compile Include="NavigationCandidate.cs;NativeHorizonPlanner.cs;StrictSelectIterator.cs;DetourExecution.cs;ExecutionState.cs"/><Reference Include="$(ManagedPath)\*.dll"><Private>false</Private></Reference></ItemGroup>
+</Project>
+
+
+
+
+
