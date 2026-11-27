@@ -48,6 +48,7 @@ namespace RoadLaneLock
    public long Load,Capacity;
    public bool Visible,Custom;
    public int? Ticket;
+   public int? Riders,RidersLast;
    public int Schedule=2;
    public int[] Fleetsize;
    public readonly List<TransitStopRow> Stops=new List<TransitStopRow>();
@@ -273,11 +274,32 @@ namespace RoadLaneLock
    Streak(row,"full",row.Vehicles>0&&rate>.9,rate>=.98?2:1,"超载","满载率持续高于 90%");
   }
   static string StopLabel(TransitRow row,int index)=>string.IsNullOrEmpty(row.Stops[index].Name)?"第 "+(index+1)+" 站":row.Stops[index].Name;
+  // Citywide passengers by mode, from the game's own monthly statistics (what the transport info view shows).
+  static readonly (string Mode,Game.City.StatisticType Type)[] riderStats={("Bus",Game.City.StatisticType.PassengerCountBus),("Tram",Game.City.StatisticType.PassengerCountTram),("Subway",Game.City.StatisticType.PassengerCountSubway),("Train",Game.City.StatisticType.PassengerCountTrain),("Ship",Game.City.StatisticType.PassengerCountShip),("Ferry",Game.City.StatisticType.PassengerCountFerry),("Airplane",Game.City.StatisticType.PassengerCountAirplane),("Taxi",Game.City.StatisticType.PassengerCountTaxi)};
+  object CityRiders()
+  {
+   try
+   {
+    var stats=World.GetOrCreateSystemManaged<Game.Simulation.CityStatisticsSystem>();
+    var modes=new List<object>();long month=0,last=0;
+    foreach(var (mode,type) in riderStats)
+    {
+     long now=stats.GetStatisticValueLong(type);long before=0;
+     var history=stats.GetStatisticDataArrayLong(type);
+     // Not disposed: the array may be the system's own buffer.
+     if(history.IsCreated&&history.Length>=2)before=history[history.Length-2];
+     month+=now;last+=before;modes.Add(new{Mode=mode,Month=now,Last=before});
+    }
+    return new{Month=month,Last=last,Modes=modes};
+   }
+   catch(Exception ex){if(!riderStatsFailed){riderStatsFailed=true;Mod.Log.Warn("全城客流读取失败："+ex.Message);}return null;}
+  }
+  bool riderStatsFailed;
   void PublishTransitMeta()
   {
    bool has=TicketSlider(out var slider);
    var json=JsonConvert.SerializeObject(new{TicketMin=0,TicketMax=has?slider.m_Range.max:0,TicketStep=has&&slider.m_Step>0?slider.m_Step:1,TicketReady=has,
-    Auto=naming.Auto,Prefix=naming.Prefix,Preview=NamingPreview()});
+    Auto=naming.Auto,Prefix=naming.Prefix,Preview=NamingPreview(),Riders=CityRiders()});
    if(json!=lastTransitMeta){lastTransitMeta=json;transitMetaBinding.Update(json);}
   }
   void RefreshTransit()
@@ -298,6 +320,7 @@ namespace RoadLaneLock
      Kind=NameKey(data),Custom=names.TryGetCustomName(e,out _),Ticket=ReadTicket(e,data)};
     row.Code=BadgeCode(row.Name,row.Kind);
     row.Schedule=ReadSchedule(e);
+    if(data.m_PassengerTransport&&!data.m_CargoTransport){var rs=TransitRidership.Current;if(rs!=null){rs.TryGet(e,out int rm,out int rl);row.Riders=rm;row.RidersLast=rl;}}
     try{row.Fleetsize=VehicleCounts(e,data);}catch(Exception ex){Mod.Log.Warn("车辆数量读取失败："+ex.Message);}
     bool drawn=row.Visible&&(activeMode=="*"||activeMode==row.Mode);
     var waypoints=new List<Entity>();var waypointPos=new List<float3?>();

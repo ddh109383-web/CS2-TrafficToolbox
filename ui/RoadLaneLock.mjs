@@ -371,10 +371,10 @@ function RuleRoadList({s}){
 }
 const transit$=bindValue('RoadLaneLock','transit','[]');
 const transitMeta$=bindValue('RoadLaneLock','transitMeta','{}');
-const labels={Bus:'公交',Train:'铁路',Subway:'地铁',Tram:'有轨电车',Ferry:'渡轮',Ship:'船运',Airplane:'航空',Cargo:'货运'};
+const labels={Bus:'公交',Train:'铁路',Subway:'地铁',Tram:'有轨电车',Ferry:'渡轮',Ship:'船运',Airplane:'航空',Taxi:'出租车',Cargo:'货运'};
 const kindLabels={Bus:'公交',Subway:'地铁',Train:'铁路',Tram:'有轨电车',Ferry:'渡轮',Ship:'船运',Airplane:'航空',Helicopter:'直升机',CargoTrain:'货运铁路',CargoShip:'货船',CargoAirplane:'货运航空',CargoBus:'货运汽车'};
 const transitStyles=`
-.rll-tr>:first-child{width:38%}.rll-tr>:nth-child(2),.rll-tr>:nth-child(4){width:8%}.rll-tr>:nth-child(3){width:12%;font-size:13rem}.rll-tr>:nth-child(5){width:26%}
+.rll-tr>:first-child{width:32%}.rll-tr>:nth-child(2),.rll-tr>:nth-child(4){width:7%}.rll-tr>:nth-child(3),.rll-tr>:nth-child(5){width:12%;font-size:13rem}.rll-tr>:nth-child(6){width:20%}.rll-riders{color:#81e2be}.rll-ridebox{display:flex;align-items:center;gap:10rem;margin:0 0 6rem;padding:8rem 12rem;border-radius:10rem;background:#2e393b;border:1rem solid #3a4a4d}.rll-ridebox>div{display:flex;flex-direction:column}.rll-ridebox small{font-size:11rem;color:#a6b5b4}.rll-ridebox strong{font-size:18rem}.rll-ridebox>em{margin-left:auto;font-style:normal;font-size:12rem;color:#a6b5b4}.rll-ridebox>em[data-up="1"]{color:#81e2be}.rll-ridechips{display:flex;flex-wrap:wrap;gap:6rem;margin:0 0 6rem}.rll-ridechips>span{padding:2rem 8rem;border-radius:999rem;background:#2e393b;border:1rem solid #3a4a4d;font-size:11rem;color:#c9d3d4}
 .rll-name{padding-right:4rem;box-sizing:border-box}
 .rll-badge{flex-shrink:0;display:flex;align-items:center;justify-content:center;min-width:28rem;height:20rem;padding:0 4rem;box-sizing:border-box;margin-right:7rem;border-radius:999rem;font-size:11rem;font-weight:700}
 .rll-flag,.rll-issue b{flex-shrink:0;padding:0 6rem;font-size:10rem;line-height:16rem;font-weight:600;border-radius:999rem;color:#f1be72;border:1rem solid #8a6d3f;background:#3a3123}
@@ -456,7 +456,7 @@ const transitStyles=`
 `;
 export function sortTransitRows(rows,key,ascending){
  if(!key)return rows;
- const value=line=>key==='stops'?line.Stops.length:key==='vehicles'?line.Vehicles:key==='onboard'?(line.Load||0):line.Capacity>0?line.Load/line.Capacity:null;
+ const value=line=>key==='stops'?line.Stops.length:key==='vehicles'?line.Vehicles:key==='onboard'?(line.Load||0):key==='riders'?(line.Riders??null):line.Capacity>0?line.Load/line.Capacity:null;
  return rows.slice().sort((a,b)=>{
   const x=value(a),y=value(b);
   if(x===null||y===null)return Number(x===null)-Number(y===null);
@@ -751,6 +751,18 @@ export function loadRing(pct){
  return h('svg',{'aria-hidden':true,viewBox:'0 0 24 24'},h('circle',{cx:12,cy:12,r:9,fill:'none',stroke:'#3d4a4a',strokeWidth:3}),
   ...(d?[h('path',{key:'v',d,fill:'none',stroke:p>=90?'#f1be72':'#79deb7',strokeWidth:3,strokeLinecap:'round'})]:[]));
 }
+// Citywide passengers this month (the game's own statistics): all modes on 总览, one mode on its tab.
+function RidersBox({riders,mode}){
+ if(!riders||mode==='Cargo')return null;
+ const list=(riders.Modes||[]).filter(m=>m.Month>0||m.Last>0);
+ const pick=mode==='*'?riders:list.find(m=>m.Mode===mode);
+ if(!pick)return null;
+ const month=pick.Month||0,last=pick.Last||0,change=last>0?Math.round((month-last)*100/last):null;
+ return h(React.Fragment,null,
+  h('div',{className:'rll-ridebox'},h('div',null,h('small',null,'本月运送'),h('strong',null,tr('{0} 人次',month.toLocaleString()))),
+   last>0&&h('em',{'data-up':change>=0?'1':'0'},tr('上月 {0}',last.toLocaleString())+(change==null?'':' '+(change>=0?'↑':'↓')+Math.abs(change)+'%'))),
+  mode==='*'&&list.length>0&&h('div',{className:'rll-ridechips'},...list.slice().sort((a,b)=>b.Month-a.Month).map(m=>h('span',{key:m.Mode},(labels[m.Mode]||m.Mode)+' '+(m.Month||0).toLocaleString()))));
+}
 function TransitPanel(){
  const lines=JSON.parse(useValue(transit$)||'[]');
  let meta;try{meta=JSON.parse(useValue(transitMeta$)||'{}')||{};}catch{meta={};}
@@ -789,7 +801,8 @@ function TransitPanel(){
  const gear=h('svg',{'aria-hidden':true,width:22,height:22,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round'},h('path',{d:'M4 7H13M19 7H20M4 17H6M12 17H20'}),h('circle',{cx:16,cy:7,r:2.5}),h('circle',{cx:9,cy:17,r:2.5}));
  return h('section',null,h('style',null,transitStyles),h('div',{className:'rll-heading'},h('h2',null,'公共交通信息'),lines.length>0&&h('small',{className:'rll-count'},lines.length+' 条 · '+lines.reduce((n,l)=>n+(l.Vehicles||0),0)+' 辆')),
   h('div',{className:'rll-bar'},h('div',{role:'tablist',className:'rll-tabs'},h('i',{className:'rll-tab-indicator',style:{left:(3+(1+modes.indexOf(active))*52)+'rem'}}),...['*',...modes].map(k=>h('button',{key:k,role:'tab','aria-selected':k===active,onClick:()=>{highlight('');setTab(k);}},k==='*'?'总览':labels[k]||k))),eye((hide?'隐藏':'显示')+(active==='*'?'全部线路':'此类线路'),()=>change(active),hide)),
-  h('div',{className:'rll-tr rll-colnames'},h('span',null,'线路'),sortHeader('stops','站点'),sortHeader('onboard','在车'),sortHeader('vehicles','车辆'),sortHeader('load','当前满载率'),h('span',null)),
+  h(RidersBox,{riders:meta.Riders,mode:active}),
+  h('div',{className:'rll-tr rll-colnames'},h('span',null,'线路'),sortHeader('stops','站点'),sortHeader('onboard','在车'),sortHeader('vehicles','车辆'),sortHeader('riders','本月人次'),sortHeader('load','当前满载率'),h('span',null)),
   lines.length===0&&h('p',null,'当前城市暂无线网数据'),
   ...rows.map(l=>{
    const pct=l.Capacity>0?Math.round(l.Load*100/l.Capacity):null;
@@ -805,6 +818,7 @@ function TransitPanel(){
      h('span',null,h('span',{className:'rll-sort','aria-label':l.Name+'共 '+l.Stops.length+' 站','aria-expanded':expanded===l.Id},l.Stops.length,actionIcon(false,expanded===l.Id))),
      h('span',{title:l.Mode==='Cargo'?'当前载货':'当前在车乘客'},h('span',{className:'rll-onboard'},formatOnboard(l))),
      h('span',null,l.Vehicles),
+     h('span',{className:'rll-riders',title:l.Riders==null?t('货运线路不统计'):t('本月 {0} 人次 · 上月 {1} 人次',(l.Riders||0).toLocaleString(),(l.RidersLast||0).toLocaleString())},l.Riders==null?'—':(l.Riders||0).toLocaleString()),
      h('div',{className:'rll-rate',title:pct==null?'暂无可用容量':l.Load+' / '+l.Capacity+(l.Mode==='Cargo'?' 千克':' 人')},h('span',null,pct==null?'—':pct+'%'),loadRing(pct)),
      eye((l.Visible?'隐藏':'显示')+l.Name,e=>{e.stopPropagation();change(l.Id);},l.Visible)),
     settings===l.Id&&h(LineSettings,{line:l,meta,lines,close:()=>setSettings('')}),
@@ -1321,7 +1335,8 @@ function Panel(){
    h('circle',{cx:18,cy:18,r:14,fill:'none',stroke:tone,strokeWidth:4,strokeDasharray:(Math.max(0,Math.min(1,fraction))*88).toFixed(1)+' 88',transform:'rotate(-90 18 18)'}));
   const tile=(label,value,fraction,tone,amber,art,sub)=>h('div',{key:label,className:'rll-tile','data-tone':amber?'amber':''},art||ring(fraction,tone),h('div',null,h('small',null,label),h('strong',null,value),sub&&h('em',null,sub)));
   // Gauges: arcs on a 36-unit ring (circumference 88).
-  const arc=(from,len,color,key)=>h('circle',{key,cx:18,cy:18,r:14,fill:'none',stroke:color,strokeWidth:4,strokeDasharray:Math.max(0,len*88).toFixed(1)+' 88',strokeDashoffset:(-from*88).toFixed(1),transform:'rotate(-90 18 18)'});
+  // The game's UI ignores negative stroke-dashoffset, so each arc is turned to its own start instead.
+  const arc=(from,len,color,key)=>h('circle',{key,cx:18,cy:18,r:14,fill:'none',stroke:color,strokeWidth:4,strokeDasharray:Math.max(0,len*88).toFixed(1)+' 88',transform:'rotate('+(-90+from*360).toFixed(1)+' 18 18)'});
   const gauge=(...parts)=>h('svg',{'aria-hidden':true,viewBox:'0 0 36 36'},h('circle',{cx:18,cy:18,r:14,fill:'none',stroke:'#3f4c4e',strokeWidth:4}),...parts);
   const flowColor=f=>f>=70?'#79deb7':f>=45?'#f1d06a':f>=25?'#f1a45f':'#fa7d70';
   const kindColors=['#81e2be','#5dcaa5','#c9b48a','#9aa8b5','#f09595','#c49be0','#8fd36a','#6f7d80'];

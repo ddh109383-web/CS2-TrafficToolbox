@@ -11,7 +11,7 @@ namespace RoadLaneLock
  public sealed class Mod:IMod
  {
   internal static readonly ILog Log=LogManager.GetLogger("RoadLaneLock").SetShowsErrorsInUI(false);
-  internal const string Version="0.3.5-alpha";
+  internal const string Version="0.3.6-alpha";
   internal static bool SupportedGame;
   internal static Setting Settings;
   private RuntimeCoordinator coordinator;
@@ -53,6 +53,7 @@ namespace RoadLaneLock
    u.UpdateBefore<RoadRules,Game.Pathfind.LanesModifiedSystem>(SystemUpdatePhase.ModificationEnd);
    u.UpdateBefore<RoadRulesBeforeSave,Game.Serialization.SerializerSystem>(SystemUpdatePhase.Serialize);
    u.UpdateAfter<RoadRulesAfterSave,Game.Serialization.SerializerSystem>(SystemUpdatePhase.Serialize);
+   u.UpdateAt<TransitRidership>(SystemUpdatePhase.GameSimulation);
    u.UpdateAt<RoadPickTool>(SystemUpdatePhase.ToolUpdate);
    u.UpdateAfter<VehicleRecorder,CarNavigationSystem.Actions>(SystemUpdatePhase.GameSimulation);
    u.UpdateAt<RoadMarkings>(SystemUpdatePhase.UIUpdate);

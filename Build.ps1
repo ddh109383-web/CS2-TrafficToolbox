@@ -24,7 +24,7 @@ if($PostProcess){
  foreach($name in @('RoadLaneLock.dll','RoadLaneLock_win_x86_64.dll','RoadLaneLock.mjs','RoadLaneLock.svg','LaneChange.svg','Junction.svg','Recorder.svg','Transit.svg','Detour.svg','Parking.svg','RoadPreview.png','MonitorPreview.png','RecordPreview.png')){
   $files[$name]=(Get-FileHash -LiteralPath (Join-Path $PSScriptRoot ('bin/Release/net48/'+$name)) -Algorithm SHA256).Hash
  }
- @{Version='0.3.5-alpha';OfficialPostProcess=$true;LiveVerified=$false;BuiltAt=(Get-Date -Format o);Files=$files}|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifest -Encoding utf8
+ @{Version='0.3.6-alpha';OfficialPostProcess=$true;LiveVerified=$false;BuiltAt=(Get-Date -Format o);Files=$files}|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifest -Encoding utf8
 }
 
 

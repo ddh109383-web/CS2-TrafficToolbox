@@ -504,5 +504,15 @@
  "开": "on",
  "关": "off",
  "路过的货车占这条路货车的 {0}% · 建议：分道禁货车，让它们走干道": "{0}% of trucks here are passing through · Suggestion: ban trucks from this road so they use main roads",
- "谁在用这条路": "Who uses this road"
+ "谁在用这条路": "Who uses this road",
+ "本月人次": "Riders",
+ "本月运送": "Carried this month",
+ "{0} 人次": "{0} rides",
+ "上月 {0}": "Last month {0}",
+ "本月 {0} 人次 · 上月 {1} 人次": "{0} rides this month · {1} last month",
+ "货运线路不统计": "Not counted for cargo lines",
+ "双黄线封闭后让车辆改道": "Re-route cars when the double yellow line closes a lane",
+ "双黄线新封住出入口车道时，已经规划好要走这些车道的车辆立即重新寻路，不再压线驶过。": "When the double yellow line closes a driveway lane, cars already routed through it plan a new route at once instead of crossing the line.",
+ "隐藏原版限速刷字": "Hide the game's painted speed numbers",
+ "设了限速的路段，隐藏道路自带的限速数字（如 55），只留本模组刷的数字。关闭后恢复原样。": "On roads with a speed limit from this mod, hide the number painted by the road itself (such as 55) and keep only ours. Turning this off shows it again."
 }

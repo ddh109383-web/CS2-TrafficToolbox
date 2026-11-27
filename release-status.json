@@ -1,7 +1,7 @@
-﻿{
-    "Version":  "0.3.5-alpha",
-    "Installable":  true,
-    "Channel":  "private-test",
-    "LiveVerified":  false,
-    "Reason":  "Renamed Traffic Toolbox; double yellow closes left turns at driveways; unmarked junction walkways closed; speed-number diagnostics. Locked-lane stall valve only releases vehicles with nothing in front (no blocker, junction lanes empty; 40 s at yield/stop signs). Road speed limit read from the live lane limit; slider starts at it; whole-direction private-car ban through the game bus-lane flag (route planning avoids it, trucks and motorbikes with it); motorbike lane kind; dedicated bicycle/bus lanes skipped; lane buttons along the lane, folded when zoomed out, bigger silhouettes with hover bubble; lane rules home page overview; card pills on one line; rule effects use live speed and one row per street; junction signs pick the lanes driving in. Requires live verification."
+{
+    "Version": "0.3.6-alpha",
+    "Installable": true,
+    "Channel": "private-test",
+    "LiveVerified": false,
+    "Reason": "Double yellow also closes ParkingLotTool / alley driveways and re-routes cars already planned through them (toggle), with per-node diagnostics; vanilla painted speed numbers hidden on roads with our speed limit (toggle); in-road ring segments drawn without negative dash offset; new lane rules and jam relief tab icons; public transport riders: citywide monthly by mode and per line this/last month (saved). Renamed Traffic Toolbox; double yellow closes left turns at driveways; unmarked junction walkways closed; speed-number diagnostics. Locked-lane stall valve only releases vehicles with nothing in front (no blocker, junction lanes empty; 40 s at yield/stop signs). Road speed limit read from the live lane limit; slider starts at it; whole-direction private-car ban through the game bus-lane flag (route planning avoids it, trucks and motorbikes with it); motorbike lane kind; dedicated bicycle/bus lanes skipped; lane buttons along the lane, folded when zoomed out, bigger silhouettes with hover bubble; lane rules home page overview; card pills on one line; rule effects use live speed and one row per street; junction signs pick the lanes driving in. Requires live verification."
 }

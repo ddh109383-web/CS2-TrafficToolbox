@@ -242,7 +242,7 @@ namespace RoadLaneLock
     {
      var other=c.m_Edge;
      if(other==road||!Usable(other))continue;
-     if(EntityManager.HasComponent<Owner>(other)&&EntityManager.GetComponentData<Owner>(other).m_Owner!=Entity.Null){driveway=true;continue;}
+     if(IsDriveway(other)){driveway=true;break;}
     }
     if(!driveway)continue;
     foreach(var sub in EntityManager.GetBuffer<SubLane>(node,true))
@@ -254,6 +254,91 @@ namespace RoadLaneLock
      if(a*d<0&&math.abs(a)>.5f&&math.abs(d)>.5f)output.Add(lane);
     }
    }
+  }
+
+  // A driveway edge: owned by a building or lot, or built from an alley / parking prefab (ParkingLotTool
+  // builds its aisles from the vanilla "Alley" roads, and not every aisle carries an Owner).
+  readonly Dictionary<Entity,bool> drivewayPrefabs=new Dictionary<Entity,bool>();
+  bool IsDriveway(Entity edge)
+  {
+   if(EntityManager.HasComponent<Owner>(edge)&&EntityManager.GetComponentData<Owner>(edge).m_Owner!=Entity.Null)return true;
+   if(!EntityManager.HasComponent<Game.Prefabs.PrefabRef>(edge))return false;
+   var prefab=EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(edge).m_Prefab;
+   if(!drivewayPrefabs.TryGetValue(prefab,out bool yes))
+   {
+    var name=PrefabName(prefab);
+    yes=name.IndexOf("Alley",System.StringComparison.OrdinalIgnoreCase)>=0||name.IndexOf("Parking",System.StringComparison.OrdinalIgnoreCase)>=0;
+    drivewayPrefabs[prefab]=yes;
+   }
+   return yes;
+  }
+  string PrefabName(Entity prefab){try{return World.GetOrCreateSystemManaged<Game.Prefabs.PrefabSystem>().GetPrefabName(prefab)??"";}catch{return "";}}
+  string EdgeName(Entity e)=>EntityManager.HasComponent<Game.Prefabs.PrefabRef>(e)?PrefabName(EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(e).m_Prefab):"?";
+
+  // Live check for the double yellow line (G25): every node at the ends of double-yellow roads, what
+  // joins there and how many of its centre-crossing car lanes are closed. Logged when the set changes.
+  string lastDrivewayReport;int forbidRebuilt;
+  void LogDoubleYellowNodes()
+  {
+   var lines=new List<string>();var seen=new HashSet<Entity>();
+   foreach(var road in DoubleYellow)
+   {
+    if(!Usable(road)||!EntityManager.HasComponent<Edge>(road)||!EntityManager.HasComponent<Curve>(road))continue;
+    var axis=EntityManager.GetComponentData<Curve>(road).m_Bezier;
+    float Side(float3 p){MathUtils.Distance(axis.xz,p.xz,out float t);var c=MathUtils.Position(axis,t);var f=math.normalizesafe(MathUtils.Tangent(axis,t));return math.dot(p.xz-c.xz,new float2(f.z,-f.x));}
+    var edge=EntityManager.GetComponentData<Edge>(road);
+    foreach(var node in new[]{edge.m_Start,edge.m_End})
+    {
+     if(!Usable(node)||!seen.Add(node)||!EntityManager.HasBuffer<ConnectedEdge>(node))continue;
+     var arms=new List<string>();bool driveway=false;
+     foreach(var c in EntityManager.GetBuffer<ConnectedEdge>(node,true))
+     {
+      if(c.m_Edge==road||!Usable(c.m_Edge))continue;
+      bool owned=EntityManager.HasComponent<Owner>(c.m_Edge)&&EntityManager.GetComponentData<Owner>(c.m_Edge).m_Owner!=Entity.Null;
+      bool d=IsDriveway(c.m_Edge);driveway|=d;
+      arms.Add(EdgeName(c.m_Edge)+(DoubleYellow.Contains(c.m_Edge)?"[双黄]":"")+(owned?"[有归属]":"")+(d?"[出入口]":""));
+     }
+     if(arms.Count<2&&!driveway)continue; // plain joint or dead end: nothing to report
+     int cross=0,closed=0;
+     if(EntityManager.HasBuffer<SubLane>(node))
+      foreach(var sub in EntityManager.GetBuffer<SubLane>(node,true))
+      {
+       var lane=sub.m_SubLane;
+       if(!EntityManager.HasComponent<CarLane>(lane)||!EntityManager.HasComponent<Curve>(lane))continue;
+       var b=EntityManager.GetComponentData<Curve>(lane).m_Bezier;float a=Side(b.a),dd=Side(b.d);
+       if(a*dd<0&&math.abs(a)>.5f&&math.abs(dd)>.5f){cross++;if((EntityManager.GetComponentData<CarLane>(lane).m_Flags&NetFlags.Forbidden)!=0)closed++;}
+      }
+     lines.Add(EdgeName(road)+" 节点"+node.Index+"：接 "+string.Join("、",arms)+"；跨中线车道 "+cross+"，已封 "+closed+(driveway?"":"（当路口，不封）"));
+    }
+   }
+   var report=string.Join("\n  ",lines);
+   if(report==lastDrivewayReport)return;
+   lastDrivewayReport=report;
+   Diagnostics.Event("doubleYellowNodes",new{Nodes=lines,Rebuilt=forbidRebuilt});
+   Mod.Log.Info("双黄线节点 "+lines.Count+" 个（被重建过的封闭车道 "+forbidRebuilt+" 条）：\n  "+report);
+  }
+
+  // Cars whose remaining route uses a lane we just closed plan again from where they are.
+  readonly List<Entity> newlyForbidden=new List<Entity>();
+  int RerouteThrough(List<Entity> lanes)
+  {
+   if(lanes.Count==0)return 0;
+   var set=new HashSet<Entity>(lanes);int count=0;
+   using var q=EntityManager.CreateEntityQuery(ComponentType.ReadOnly<Game.Vehicles.Car>(),ComponentType.ReadWrite<PathOwner>(),ComponentType.ReadOnly<PathElement>());
+   using var cars=q.ToEntityArray(Unity.Collections.Allocator.Temp);
+   foreach(var car in cars)
+   {
+    var owner=EntityManager.GetComponentData<PathOwner>(car);
+    if((owner.m_State&(PathFlags.Pending|PathFlags.Obsolete|PathFlags.Failed))!=0)continue;
+    var path=EntityManager.GetBuffer<PathElement>(car,true);
+    bool hit=false;
+    for(int i=owner.m_ElementIndex;i<path.Length&&!hit;i++)hit=set.Contains(path[i].m_Target);
+    if(!hit&&EntityManager.HasBuffer<Game.Vehicles.CarNavigationLane>(car))
+     foreach(var n in EntityManager.GetBuffer<Game.Vehicles.CarNavigationLane>(car,true))if(set.Contains(n.m_Lane)){hit=true;break;}
+    if(!hit)continue;
+    owner.m_State|=PathFlags.Obsolete;EntityManager.SetComponentData(car,owner);count++;
+   }
+   return count;
   }
 
   // Does a walkway in a junction run across one of the junction's roads (ends on opposite sides of
@@ -329,7 +414,7 @@ namespace RoadLaneLock
   {
    if(Suspended||!Mod.SupportedGame)return;
    bool empty=Speed.Count==0&&NoBikes.Count==0&&LaneBans.Count==0&&DoubleYellow.Count==0&&NoCrossing.Count==0;
-   if(empty&&speedOwned.Count==0&&bikeOwned.Count==0&&forbidOwned.Count==0&&publicOwned.Count==0&&crossingOwned.Count==0)return;
+   if(empty&&speedOwned.Count==0&&bikeOwned.Count==0&&forbidOwned.Count==0&&publicOwned.Count==0&&crossingOwned.Count==0&&marksHidden.Count==0)return;
    if(applied==Revision&&UnityEngine.Time.unscaledTime<nextApply)return;
    applied=Revision;nextApply=UnityEngine.Time.unscaledTime+1f;
    Apply();
@@ -412,12 +497,20 @@ namespace RoadLaneLock
     data.m_SpeedLimit=pair.Value;EntityManager.SetComponentData(pair.Key,data);Dirty(pair.Key);
    }
    SyncFlag(bikeOwned,wantBike,NetFlags.ForbidBicycles);
-   SyncFlag(forbidOwned,wantForbid,NetFlags.Forbidden);
+   newlyForbidden.Clear();
+   forbidRebuilt+=SyncFlag(forbidOwned,wantForbid,NetFlags.Forbidden,newlyForbidden);
+   if(newlyForbidden.Count>0&&(Mod.Settings==null||Mod.Settings.DoubleYellowReroute))
+   {
+    int moved=RerouteThrough(newlyForbidden);
+    if(moved>0){Diagnostics.Event("doubleYellowReroute",new{Lanes=newlyForbidden.Count,Cars=moved});Mod.Log.Info("双黄线新封 "+newlyForbidden.Count+" 条车道，"+moved+" 辆车改道");}
+   }
+   if(DoubleYellow.Count>0)LogDoubleYellowNodes();
    SyncFlag(publicOwned,wantPublic,NetFlags.PublicOnly);
    // For live checks: how many lanes each rule actually reached.
    var summary=wantSpeed.Count+"/"+wantBike.Count+"/"+wantPublic.Count+"/"+wantForbid.Count+"/"+wantCrossing.Count;
    if(summary!=lastSummary&&Speed.Count>0)LogSpeedRoadObjects();
    if(summary!=lastSummary){lastSummary=summary;Diagnostics.Event("roadRulesApplied",new{SpeedLanes=wantSpeed.Count,BikeLanes=wantBike.Count,NoPrivateLanes=wantPublic.Count,DoubleYellowAccessLanes=wantForbid.Count,ClosedCrossings=wantCrossing.Count,DoubleYellowRoads=DoubleYellow.Count});Mod.Log.Info("车道规则生效：限速车道 "+wantSpeed.Count+"，禁自行车车道 "+wantBike.Count+"，整段禁私家车车道 "+wantPublic.Count+"，双黄线封闭出入口 "+wantForbid.Count+"，关闭横道 "+wantCrossing.Count);}
+   SyncSpeedMarks();
    // Crossings.
    stale.Clear();foreach(var lane in crossingOwned.Keys)if(!wantCrossing.ContainsKey(lane))stale.Add(lane);
    foreach(var lane in stale){RestoreCrossing(lane);crossingOwned.Remove(lane);}
@@ -430,16 +523,63 @@ namespace RoadLaneLock
    }
   }
 
-  void SyncFlag(HashSet<Entity> owned,HashSet<Entity> want,NetFlags flag)
+  // G27: the game's NA road prefabs carry their speed number as sub-objects ("NA LaneMarkings Speed55").
+  // On roads with our speed limit they are hidden (Game.Tools.Hidden, as the move tool does), and shown
+  // again when the limit or the setting goes away. Rebuilt roads get new sub-objects, picked up next pass.
+  readonly HashSet<Entity> marksHidden=new HashSet<Entity>(),wantMarks=new HashSet<Entity>();
+  readonly Dictionary<Entity,bool> speedMarkPrefabs=new Dictionary<Entity,bool>();
+  bool IsSpeedMark(Entity obj)
   {
+   if(!EntityManager.HasComponent<Game.Prefabs.PrefabRef>(obj))return false;
+   var prefab=EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(obj).m_Prefab;
+   if(!speedMarkPrefabs.TryGetValue(prefab,out bool yes))
+   {
+    var name=PrefabName(prefab);
+    yes=name.IndexOf("LaneMarkings Speed",System.StringComparison.OrdinalIgnoreCase)>=0||name.IndexOf("LaneMarking Speed",System.StringComparison.OrdinalIgnoreCase)>=0;
+    speedMarkPrefabs[prefab]=yes;
+   }
+   return yes;
+  }
+  int lastMarks=-1;
+  void SyncSpeedMarks()
+  {
+   wantMarks.Clear();
+   if(Mod.Settings==null||Mod.Settings.HideVanillaSpeedMarks)
+    foreach(var road in Speed.Keys)
+     if(Usable(road)&&EntityManager.HasBuffer<Game.Objects.SubObject>(road))
+      foreach(var s in EntityManager.GetBuffer<Game.Objects.SubObject>(road,true))
+       if(Usable(s.m_SubObject)&&IsSpeedMark(s.m_SubObject))wantMarks.Add(s.m_SubObject);
+   stale.Clear();foreach(var o in marksHidden)if(!wantMarks.Contains(o))stale.Add(o);
+   foreach(var o in stale)
+   {
+    marksHidden.Remove(o);
+    if(!Usable(o)||!EntityManager.HasComponent<Game.Tools.Hidden>(o))continue;
+    EntityManager.RemoveComponent<Game.Tools.Hidden>(o);
+    if(!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);
+   }
+   foreach(var o in wantMarks)
+   {
+    if(marksHidden.Contains(o))continue;
+    if(EntityManager.HasComponent<Game.Tools.Hidden>(o))continue; // hidden by someone else: not ours
+    EntityManager.AddComponent<Game.Tools.Hidden>(o);
+    if(!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);
+    marksHidden.Add(o);
+   }
+   if(marksHidden.Count!=lastMarks){lastMarks=marksHidden.Count;Diagnostics.Event("speedMarksHidden",new{Count=marksHidden.Count});Mod.Log.Info("隐藏原版限速刷字 "+marksHidden.Count+" 个");}
+  }
+
+  int SyncFlag(HashSet<Entity> owned,HashSet<Entity> want,NetFlags flag,List<Entity> added=null)
+  {
+   int gone=0;
    stale.Clear();foreach(var lane in owned)if(!want.Contains(lane))stale.Add(lane);
-   foreach(var lane in stale){ClearFlag(lane,flag,true);owned.Remove(lane);}
+   foreach(var lane in stale){if(!Usable(lane))gone++;ClearFlag(lane,flag,true);owned.Remove(lane);}
    foreach(var lane in want)
    {
     var data=EntityManager.GetComponentData<CarLane>(lane);
     if((data.m_Flags&flag)!=0)continue; // already set (by us earlier, or by the game: then it is not ours to clear)
-    owned.Add(lane);data.m_Flags|=flag;EntityManager.SetComponentData(lane,data);Dirty(lane);
+    owned.Add(lane);data.m_Flags|=flag;EntityManager.SetComponentData(lane,data);Dirty(lane);added?.Add(lane);
    }
+   return gone;
   }
 
   void ClearFlag(Entity lane,NetFlags flag,bool notify)
@@ -467,10 +607,11 @@ namespace RoadLaneLock
    foreach(var lane in forbidOwned)ClearFlag(lane,NetFlags.Forbidden,false);
    foreach(var lane in publicOwned)ClearFlag(lane,NetFlags.PublicOnly,false);
    foreach(var lane in crossingOwned.Keys)RestoreCrossing(lane,false);
+   foreach(var o in marksHidden)if(Usable(o)&&EntityManager.HasComponent<Game.Tools.Hidden>(o))EntityManager.RemoveComponent<Game.Tools.Hidden>(o);
   }
   internal void AfterSave()
   {
-   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();
+   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();marksHidden.Clear();
    Suspended=false;applied=-1;Apply();
   }
   internal void Shutdown()
@@ -481,6 +622,7 @@ namespace RoadLaneLock
    foreach(var lane in forbidOwned)if(Usable(lane))Dirty(lane);
    foreach(var lane in publicOwned)if(Usable(lane))Dirty(lane);
    foreach(var lane in crossingOwned.Keys)if(Usable(lane))Dirty(lane);
+   foreach(var o in marksHidden)if(Usable(o)&&!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);marksHidden.Clear();
    speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();Enabled=false;
   }
 
