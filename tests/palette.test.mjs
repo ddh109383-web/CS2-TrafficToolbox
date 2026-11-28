@@ -10,7 +10,7 @@ assert.equal(mod.toHex({r:NaN,g:0,b:0}),null);
 const touched=[];
 mod.default({append:(k)=>touched.push('append:'+k),get:()=>{throw new Error('must not read native modules');},override:()=>{throw new Error('must not override native modules');}});
 assert.deepEqual(touched,['append:GameTopLeft','append:Game']);
-assert.equal(mod.badgeInk('#FFFFFF'),'#17201f');assert.equal(mod.badgeInk('#1D50A2'),'#ffffff');
+assert.equal(mod.badgeInk('#FFFFFF'),'#171b20');assert.equal(mod.badgeInk('#1D50A2'),'#ffffff');
 assert.ok(mod.colorDistance('#FF0000','#FF0000')===0&&mod.colorDistance('#FF0000','#00FF00')>300);
 const lines=[{Id:'1',Mode:'Bus',Color:'#2BB673',Name:'甲'},{Id:'2',Mode:'Bus',Color:'#2CB774',Name:'乙'},{Id:'3',Mode:'Bus',Color:'#000000',Name:'丙'}];
 const picks=mod.recommendColors(lines[2],lines);
