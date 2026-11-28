@@ -554,9 +554,12 @@ namespace RoadLaneLock
    {
     marksRoads.Add(road);
     if(!EntityManager.HasBuffer<Game.Objects.SubObject>(road))continue;
+    // Take the mark out of the road's sub-object list first, then delete it (as RoadBuilder does).
+    // Deleting alone left the list pointing at a dead entity, which crashed RoadBuilder and the game.
     scratch.Clear();
-    foreach(var s in EntityManager.GetBuffer<Game.Objects.SubObject>(road,true))
-     if(Usable(s.m_SubObject)&&IsSpeedMark(s.m_SubObject))scratch.Add(s.m_SubObject);
+    var subs=EntityManager.GetBuffer<Game.Objects.SubObject>(road);
+    for(int i=subs.Length-1;i>=0;i--)
+     if(Usable(subs[i].m_SubObject)&&IsSpeedMark(subs[i].m_SubObject)){scratch.Add(subs[i].m_SubObject);subs.RemoveAt(i);}
     foreach(var o in scratch){EntityManager.AddComponent<Deleted>(o);now++;}
    }
    marksDeleted+=now;
@@ -622,6 +625,33 @@ namespace RoadLaneLock
    speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();Enabled=false;
   }
 
+  // Saves touched by 0.3.6-0.3.8 can hold road sub-object lists pointing at entities that are gone
+  // (hidden or deleted speed marks). Drop those entries right after loading, before other mods read them.
+  protected override void OnGameLoaded(Context serializationContext)
+  {
+   base.OnGameLoaded(serializationContext);
+   try{RepairSubObjects();}catch(System.Exception ex){Mod.Log.Warn("子物件清单修复失败："+ex.Message);}
+  }
+  void RepairSubObjects()
+  {
+   int fixedEntries=0,owners=0;
+   using var q=EntityManager.CreateEntityQuery(ComponentType.ReadWrite<Game.Objects.SubObject>());
+   using var list=q.ToEntityArray(Unity.Collections.Allocator.Temp);
+   foreach(var owner in list)
+   {
+    var subs=EntityManager.GetBuffer<Game.Objects.SubObject>(owner);bool any=false;
+    for(int i=subs.Length-1;i>=0;i--)
+     if(subs[i].m_SubObject==Entity.Null||!EntityManager.Exists(subs[i].m_SubObject)){subs.RemoveAt(i);fixedEntries++;any=true;}
+    if(any)owners++;
+   }
+   // Old 0.3.6 saves: a speed mark may still carry our Hidden tag.
+   int unhidden=0;
+   using var hq=EntityManager.CreateEntityQuery(ComponentType.ReadOnly<Game.Tools.Hidden>(),ComponentType.ReadOnly<Game.Prefabs.PrefabRef>(),ComponentType.ReadOnly<Owner>());
+   using var hidden=hq.ToEntityArray(Unity.Collections.Allocator.Temp);
+   foreach(var o in hidden)if(IsSpeedMark(o)){EntityManager.RemoveComponent<Game.Tools.Hidden>(o);unhidden++;}
+   Diagnostics.Event("subObjectRepair",new{Entries=fixedEntries,Owners=owners,Unhidden=unhidden});
+   Mod.Log.Info("读档修复：清掉指向不存在物件的子物件记录 "+fixedEntries+" 条（"+owners+" 个对象），取消隐藏 "+unhidden+" 个");
+  }
   protected override void OnGameLoadingComplete(Purpose purpose,GameMode mode)
   {
    base.OnGameLoadingComplete(purpose,mode);

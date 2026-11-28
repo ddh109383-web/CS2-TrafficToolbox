@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup>
-  <TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion><Version>0.3.8-alpha</Version>
+  <TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion><Version>0.3.9-alpha</Version>
   <NoStdLib>true</NoStdLib><DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
   <ManagedPath>$([System.Environment]::GetEnvironmentVariable('CSII_MANAGEDPATH', 'EnvironmentVariableTarget.User'))</ManagedPath><FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
   <EnableDefaultCompileItems>false</EnableDefaultCompileItems>

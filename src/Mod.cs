@@ -11,7 +11,7 @@ namespace RoadLaneLock
  public sealed class Mod:IMod
  {
   internal static readonly ILog Log=LogManager.GetLogger("RoadLaneLock").SetShowsErrorsInUI(false);
-  internal const string Version="0.3.8-alpha";
+  internal const string Version="0.3.9-alpha";
   internal static bool SupportedGame;
   internal static Setting Settings;
   private RuntimeCoordinator coordinator;
