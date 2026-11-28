@@ -414,7 +414,7 @@ namespace RoadLaneLock
   {
    if(Suspended||!Mod.SupportedGame)return;
    bool empty=Speed.Count==0&&NoBikes.Count==0&&LaneBans.Count==0&&DoubleYellow.Count==0&&NoCrossing.Count==0;
-   if(empty&&speedOwned.Count==0&&bikeOwned.Count==0&&forbidOwned.Count==0&&publicOwned.Count==0&&crossingOwned.Count==0&&marksHidden.Count==0)return;
+   if(empty&&speedOwned.Count==0&&bikeOwned.Count==0&&forbidOwned.Count==0&&publicOwned.Count==0&&crossingOwned.Count==0&&marksRoads.Count==0)return;
    if(applied==Revision&&UnityEngine.Time.unscaledTime<nextApply)return;
    applied=Revision;nextApply=UnityEngine.Time.unscaledTime+1f;
    Apply();
@@ -524,9 +524,10 @@ namespace RoadLaneLock
   }
 
   // G27: the game's NA road prefabs carry their speed number as sub-objects ("NA LaneMarkings Speed55").
-  // On roads with our speed limit they are hidden (Game.Tools.Hidden, as the move tool does), and shown
-  // again when the limit or the setting goes away. Rebuilt roads get new sub-objects, picked up next pass.
-  readonly HashSet<Entity> marksHidden=new HashSet<Entity>(),wantMarks=new HashSet<Entity>();
+  // Hiding them (Game.Tools.Hidden) did not stop them drawing, so on roads with our speed limit they
+  // are deleted. A rebuilt road grows them back (picked up again next pass); when our limit or the
+  // setting goes away the road is marked Updated and the game places them again.
+  readonly HashSet<Entity> marksRoads=new HashSet<Entity>(),wantMarkRoads=new HashSet<Entity>();
   readonly Dictionary<Entity,bool> speedMarkPrefabs=new Dictionary<Entity,bool>();
   bool IsSpeedMark(Entity obj)
   {
@@ -540,33 +541,29 @@ namespace RoadLaneLock
    }
    return yes;
   }
-  int lastMarks=-1;
+  int marksDeleted,lastMarksLogged=-1;
   void SyncSpeedMarks()
   {
-   wantMarks.Clear();
+   wantMarkRoads.Clear();
    if(Mod.Settings==null||Mod.Settings.HideVanillaSpeedMarks)
-    foreach(var road in Speed.Keys)
-     if(Usable(road)&&EntityManager.HasBuffer<Game.Objects.SubObject>(road))
-      foreach(var s in EntityManager.GetBuffer<Game.Objects.SubObject>(road,true))
-       if(Usable(s.m_SubObject)&&IsSpeedMark(s.m_SubObject))wantMarks.Add(s.m_SubObject);
-   stale.Clear();foreach(var o in marksHidden)if(!wantMarks.Contains(o))stale.Add(o);
-   foreach(var o in stale)
+    foreach(var road in Speed.Keys)if(Usable(road))wantMarkRoads.Add(road);
+   stale.Clear();foreach(var road in marksRoads)if(!wantMarkRoads.Contains(road))stale.Add(road);
+   foreach(var road in stale){marksRoads.Remove(road);Regrow(road);}
+   int now=0;
+   foreach(var road in wantMarkRoads)
    {
-    marksHidden.Remove(o);
-    if(!Usable(o)||!EntityManager.HasComponent<Game.Tools.Hidden>(o))continue;
-    EntityManager.RemoveComponent<Game.Tools.Hidden>(o);
-    if(!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);
+    marksRoads.Add(road);
+    if(!EntityManager.HasBuffer<Game.Objects.SubObject>(road))continue;
+    scratch.Clear();
+    foreach(var s in EntityManager.GetBuffer<Game.Objects.SubObject>(road,true))
+     if(Usable(s.m_SubObject)&&IsSpeedMark(s.m_SubObject))scratch.Add(s.m_SubObject);
+    foreach(var o in scratch){EntityManager.AddComponent<Deleted>(o);now++;}
    }
-   foreach(var o in wantMarks)
-   {
-    if(marksHidden.Contains(o))continue;
-    if(EntityManager.HasComponent<Game.Tools.Hidden>(o))continue; // hidden by someone else: not ours
-    EntityManager.AddComponent<Game.Tools.Hidden>(o);
-    if(!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);
-    marksHidden.Add(o);
-   }
-   if(marksHidden.Count!=lastMarks){lastMarks=marksHidden.Count;Diagnostics.Event("speedMarksHidden",new{Count=marksHidden.Count});Mod.Log.Info("隐藏原版限速刷字 "+marksHidden.Count+" 个");}
+   marksDeleted+=now;
+   if(now>0&&marksDeleted!=lastMarksLogged){lastMarksLogged=marksDeleted;Diagnostics.Event("speedMarksDeleted",new{Now=now,Total=marksDeleted,Roads=marksRoads.Count});Mod.Log.Info("删除原版限速刷字 "+now+" 个（累计 "+marksDeleted+"，"+marksRoads.Count+" 段路）");}
   }
+  // Let the game place a road's own markings again.
+  void Regrow(Entity road){if(Usable(road)&&!EntityManager.HasComponent<Updated>(road))EntityManager.AddComponent<Updated>(road);}
 
   int SyncFlag(HashSet<Entity> owned,HashSet<Entity> want,NetFlags flag,List<Entity> added=null)
   {
@@ -607,11 +604,10 @@ namespace RoadLaneLock
    foreach(var lane in forbidOwned)ClearFlag(lane,NetFlags.Forbidden,false);
    foreach(var lane in publicOwned)ClearFlag(lane,NetFlags.PublicOnly,false);
    foreach(var lane in crossingOwned.Keys)RestoreCrossing(lane,false);
-   foreach(var o in marksHidden)if(Usable(o)&&EntityManager.HasComponent<Game.Tools.Hidden>(o))EntityManager.RemoveComponent<Game.Tools.Hidden>(o);
   }
   internal void AfterSave()
   {
-   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();marksHidden.Clear();
+   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();
    Suspended=false;applied=-1;Apply();
   }
   internal void Shutdown()
@@ -622,14 +618,14 @@ namespace RoadLaneLock
    foreach(var lane in forbidOwned)if(Usable(lane))Dirty(lane);
    foreach(var lane in publicOwned)if(Usable(lane))Dirty(lane);
    foreach(var lane in crossingOwned.Keys)if(Usable(lane))Dirty(lane);
-   foreach(var o in marksHidden)if(Usable(o)&&!EntityManager.HasComponent<BatchesUpdated>(o))EntityManager.AddComponent<BatchesUpdated>(o);marksHidden.Clear();
+   foreach(var road in marksRoads)Regrow(road);marksRoads.Clear();
    speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();Enabled=false;
   }
 
   protected override void OnGameLoadingComplete(Purpose purpose,GameMode mode)
   {
    base.OnGameLoadingComplete(purpose,mode);
-   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();Suspended=false;applied=-1;Revision++;
+   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();marksRoads.Clear();Suspended=false;applied=-1;Revision++;
    Diagnostics.Event("roadRulesLoaded",new{Speed=Speed.Count,NoBikes=NoBikes.Count,LaneBanRoads=LaneBans.Count,DoubleYellow=DoubleYellow.Count,NoCrossing=NoCrossing.Count});
   }
 

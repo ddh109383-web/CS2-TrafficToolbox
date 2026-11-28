@@ -100,7 +100,7 @@ const panelStyles=`
 .rll-rate{font-size:13rem;justify-content:center}.rll-rate span{width:36rem;text-align:right;margin-right:6rem}.rll-rate svg{width:22rem;height:22rem;flex-shrink:0}.rll-rate i{display:flex;flex:1;height:5rem;border-radius:4rem;background:#53605f;overflow:hidden}.rll-rate b{height:100%;background:#79deb7;transition:width 230ms ease}
 .rll-track{display:flex;align-items:center;justify-content:flex-start;width:34rem;height:20rem;padding:3rem;box-sizing:border-box;border-radius:10rem;background:#626b72;transition:background-color 150ms ease}.rll-track[data-on="1"]{justify-content:flex-end;background:#70d4c4}.rll-track>span{width:14rem;height:14rem;border-radius:7rem;background:#fff}.rll-track[data-on="1"]>span{background:#183330}
 .rll-card{transition:border-color 150ms ease,background-color 150ms ease}
-.rll-pills{display:flex;flex-wrap:wrap;margin:2rem -3rem 4rem}.rll-pills>*{margin:3rem}
+.rll-pills{display:flex;flex-wrap:wrap;flex-shrink:0;align-items:center;align-content:flex-start;margin:2rem -3rem 4rem}.rll-pills.rll-oneline{flex-wrap:nowrap;overflow:hidden}.rll-rangego{display:block;margin:6rem 0 2rem}.rll-range{margin-top:6rem;padding:10rem 12rem;border:1rem solid #3a4a4d;border-radius:12rem;background:#2e393b}.rll-rangesteps{display:flex;flex-direction:column}.rll-rangesteps>span{padding:4rem 0;font-size:13rem;color:#a6b5b4}.rll-rangesteps>span[data-on="1"]{color:#81e2be}.rll-rangesteps>span[data-done="1"]{color:#e8f0ee}.rll-rangeinfo{display:flex;flex-direction:column;margin:6rem 0 4rem}.rll-rangeinfo>strong{font-size:14rem}.rll-rangeinfo>small{font-size:12rem;color:#a6b5b4}.rll-rangebtns{display:flex;margin-top:8rem}.rll-rangebtns>button{height:26rem;margin-right:6rem;padding:0 13rem;border:0;border-radius:999rem;background:#34403f;color:#e8f0ee;font-size:12rem;cursor:pointer}.rll-rangebtns>button:hover{background:#3d4d4b;color:#81e2be}.rll-headstats{display:flex;align-items:center;flex-shrink:0}.rll-headstats>small{font-size:11rem;color:#a6b5b4;white-space:nowrap}.rll-headstats>small[data-tone=amber]{color:#f1be72;margin-right:4rem}.rll-pills>*{margin:3rem}
 .rll-pill{flex-shrink:0;padding:1rem 9rem;border:1rem solid #4a5a5c;border-radius:999rem;font-size:11rem;color:#dfe8e6;white-space:nowrap}
 .rll-pill[data-tone="mint"]{border-color:#3d5a52;background:#243a35;color:#81e2be}.rll-pill[data-tone="amber"]{border-color:#8a6d3f;background:#3a3123;color:#f1be72}
 .rll-roadcard{margin:8rem 0;padding:10rem 12rem;border:1rem solid #3d5a52;border-top-color:#81e2be;border-radius:12rem;background:#2e393b}
@@ -1024,12 +1024,34 @@ function SpeedSlider({value,original,onSet}){
    h('button',{type:'button',className:'rll-speed-step','aria-label':t('提高'),onClick:()=>step(1)},'+')),
   h('div',{className:'rll-speed-ticks'},...ticks.map(i=>h('span',{key:i,'data-home':i===home&&original>0?'1':'0',style:{left:pos(i)+'%'}},i===home&&original>0?t('原版 {0}',stops[i]):String(stops[i])))));
 }
+// G37: pick a start and an end junction; every road between them gets the same speed limit.
+function RangePanel({s}){
+ const g=s.SpeedRange||{};
+ const step=!g.Start?1:!g.End?2:3;
+ const send=v=>trigger('RoadLaneLock','setRangeSpeed',JSON.stringify({Session:s.Session,Value:v}));
+ return h('div',null,
+  h('div',{className:'rll-range'},
+   h('div',{className:'rll-rangesteps'},
+    h('span',{'data-on':step===1?'1':'0','data-done':g.Start?'1':'0'},'① '+(g.Start||t('点起点路口'))),
+    h('span',{'data-on':step===2?'1':'0','data-done':g.End?'1':'0'},'② '+(g.End||t('点终点路口')))),
+   step<3&&h('small',{className:'rll-hint'},g.Hover?t('悬停：{0}',g.Hover):t('鼠标悬停路口出现白圈，左键选中；右键退一步')),
+   g.Missing&&h('p',{className:'rll-warnline'},t('这两个路口之间找不到相连的道路，换一个终点试试')),
+   step===3&&g.Roads>0&&h('div',{className:'rll-rangeinfo'},
+    h('strong',null,(g.Names||[]).join('、')+(g.MoreNames>0?t(' 等 {0} 条路',g.Names.length+g.MoreNames):'')),
+    h('small',null,t('{0} 段 · {1} 米',g.Roads,(g.Length||0).toLocaleString())+(g.Mixed?' · '+t('现在限速不一致'):''))),
+   step===3&&g.Roads>0&&h(SpeedSlider,{value:g.Mixed?0:(g.Speed||0),original:g.Default,onSet:send}),
+   step===3&&g.Roads>0&&h('small',{className:'rll-note'},t('左右拖动即应用到这 {0} 段；拖回原版即取消限速。',g.Roads))),
+  h('div',{className:'rll-rangebtns'},
+   h('button',{type:'button',onClick:()=>trigger('RoadLaneLock','rangeReset')},t('重选')),
+   h('button',{type:'button',onClick:()=>trigger('RoadLaneLock','speedRange',false)},t('返回选单段'))));
+}
 function RuleBody({s}){
  const lr=s.LaneRules||{},tab=s.LaneTab||'lane';
  const send=(name,extra)=>trigger('RoadLaneLock',name,JSON.stringify({Session:s.Session,Index:s.Index,Version:s.Version,...extra}));
  if(tab==='speed')return h('div',null,
   h(SpeedSlider,{value:lr.Speed||0,original:lr.DefaultSpeed,onSet:v=>send('setSpeed',{Value:v})}),
-  h('small',{className:'rll-note'},lr.Speed?t('路面涂限速数字；车辆按这个速度行驶，寻路也按新速度算。拖回原版即取消。'):t('滑块停在这条路的原版限速；左右拖动即生效。')));
+  h('small',{className:'rll-note'},lr.Speed?t('路面涂限速数字；车辆按这个速度行驶，寻路也按新速度算。拖回原版即取消。'):t('滑块停在这条路的原版限速；左右拖动即生效。')),
+  h('button',{type:'button',className:'rll-link rll-rangego',onClick:()=>trigger('RoadLaneLock','speedRange',true)},t('按路口选一段改限速 ›')));
  if(tab==='yellow')return h('div',null,
   h(RuleSwitch,{on:!!lr.DoubleYellow,disabled:!lr.TwoWay&&!lr.DoubleYellow,title:t('双黄线'),status:!lr.TwoWay?t('单行道没有对向车道'):lr.DoubleYellow?t('不掉头 · 不跨线进出 · 禁行人横穿'):t('未设置'),sign:ruleSign('yellow',26),onToggle:()=>send('setDoubleYellow',{Enable:!lr.DoubleYellow})}),
   h('small',{className:'rll-note'},t('路中画双黄实线：车辆不能跨对向车道左转进出路边，也不能借路边出入口掉头；路段两端的普通接头禁止行人横穿。')));
@@ -1333,7 +1355,7 @@ function Panel(){
   const t=s.Traffic;
   const ring=(fraction,tone)=>h('svg',{'aria-hidden':true,viewBox:'0 0 36 36'},h('circle',{cx:18,cy:18,r:14,fill:'none',stroke:'#3f4c4e',strokeWidth:4}),
    h('circle',{cx:18,cy:18,r:14,fill:'none',stroke:tone,strokeWidth:4,strokeDasharray:(Math.max(0,Math.min(1,fraction))*88).toFixed(1)+' 88',transform:'rotate(-90 18 18)'}));
-  const tile=(label,value,fraction,tone,amber,art,sub)=>h('div',{key:label,className:'rll-tile','data-tone':amber?'amber':''},art||ring(fraction,tone),h('div',null,h('small',null,label),h('strong',null,value),sub&&h('em',null,sub)));
+  const tile=(label,value,fraction,tone,amber,art,sub)=>h('div',{key:label,className:'rll-tile','data-tone':amber?'amber':''},art===null?null:art||ring(fraction,tone),h('div',null,h('small',null,label),h('strong',null,value),sub&&h('em',null,sub)));
   // Gauges: arcs on a 36-unit ring (circumference 88).
   // The game's UI ignores negative stroke-dashoffset, so each arc is turned to its own start instead.
   const arc=(from,len,color,key)=>h('circle',{key,cx:18,cy:18,r:14,fill:'none',stroke:color,strokeWidth:4,strokeDasharray:Math.max(0,len*88).toFixed(1)+' 88',transform:'rotate('+(-90+from*360).toFixed(1)+' 18 18)'});
@@ -1349,8 +1371,8 @@ function Panel(){
    return [
     h('div',{key:'tiles',className:'rll-tiles'},
      (()=>{const all=Math.max(1,t.LiveCars||0),stop=Math.min(all,t.Standing||0),go=all-stop,goPct=Math.round(go*100/all);
-      let at=0;const mixArcs=kinds.filter(k=>k.Count>0).map(k=>{const len=k.Count/total,el=arc(at,Math.max(0,len-.008),k.color,'k'+k.Name);at+=len;return el;});
-      return tile('在路上',(t.Moving||0).toLocaleString(),0,'',false,gauge(...mixArcs),tr('行驶 {0}% · 停着 {1}%',goPct,100-goPct));})(),
+      // No ring here: the game's UI would not draw the coloured segments (G35); the mix bar below shows it.
+      return tile('在路上',(t.Moving||0).toLocaleString(),0,'',false,null,tr('行驶 {0}% · 停着 {1}%',goPct,100-goPct));})(),
      (()=>{const f=t.Flow??100,ago=t.FlowHourAgo??-1,a=Math.max(0,Math.min(1,f/100))*360;
       return tile('平均流速',f+'%',0,'',false,gauge(arc(0,f/100,flowColor(f),'f'),h('line',{key:'n',x1:18,y1:2,x2:18,y2:8,stroke:'#e8f0ee',strokeWidth:1.6,transform:'rotate('+a.toFixed(0)+' 18 18)'})),
        ago<0?tr('实时车速 ÷ 限速'):tr('1 小时前 {0}% {1}',ago,f>ago+2?'↑':f<ago-2?'↓':'→'));})(),
@@ -1395,12 +1417,17 @@ function Panel(){
  if(s.JunctionOpen)return h(JunctionPage,{s,shellView,heading,pageFold});
  const idPill=s.VehicleId&&h('span',{className:'rll-pill','data-tone':'mint',title:'车辆 ID（与诊断日志一致）',style:{userSelect:'text'}},'车辆 '+s.VehicleId);
  const laneState=s.ExecutorReady===false?h('span',{className:'rll-pill','data-tone':'amber'},'执行器不可用'):h('span',{className:'rll-pill','data-tone':'mint'},s.Enabled?'执行中':'待命');
+ if(s.Picking&&s.SpeedRange)return shellView(t('按路口选一段'),heading(t('车道规则'),laneState),h(RangePanel,{s}));
  if(s.Picking){
   const roads=s.RuleRoads||[],both=roads.filter(r=>(r.Mask&3)===3).length,detours=s.Detours||0;
   const ls=s.LaneStats||{};
-  return shellView('选择路段',heading(t('车道规则'),laneState),
-   h('div',{className:'rll-pills'},h('span',{className:'rll-pill','data-tone':'mint'},'已设 '+roads.length+' 段'),roads.some(r=>r.Mask)&&statPill(t('禁变道 {0}',roads.filter(r=>r.Mask).length)),roads.some(r=>r.Speed)&&statPill(t('限速 {0} 段',roads.filter(r=>r.Speed).length)),roads.some(r=>r.Yellow)&&statPill(t('双黄线 {0}',roads.filter(r=>r.Yellow).length)),roads.some(r=>r.BannedLanes)&&statPill(t('分道 {0} 段',roads.filter(r=>r.BannedLanes).length)),ls.Total>0&&statPill('按道驶出 '+fmt(ls.Total)+' 辆'),h('span',{className:'rll-pill','data-tone':detours>0?'amber':''},'绕行 '+detours+' 辆'),idPill),
-   h(ModuleHero,{s,art:overviewArt(),picking:true,pickTitle:'选择路段',desc:rulesDesc}),h(RuleRoadList,{s}),
+  // One row of rule counts; the vehicle counts sit small beside the state pill (G36).
+  const headStats=h('div',{className:'rll-headstats'},h('small',null,t('按道驶出 {0}',fmt(ls.Total||0))+' · '),h('small',{'data-tone':detours>0?'amber':''},t('绕行 {0}',detours)),laneState);
+  return shellView('选择路段',heading(t('车道规则'),headStats),
+   h('div',{className:'rll-pills rll-oneline'},h('span',{className:'rll-pill','data-tone':'mint'},'已设 '+roads.length+' 段'),roads.some(r=>r.Mask)&&statPill(t('禁变道 {0}',roads.filter(r=>r.Mask).length)),roads.some(r=>r.Speed)&&statPill(t('限速 {0}',roads.filter(r=>r.Speed).length)),roads.some(r=>r.Yellow)&&statPill(t('双黄线 {0}',roads.filter(r=>r.Yellow).length)),roads.some(r=>r.BannedLanes)&&statPill(t('分道 {0}',roads.filter(r=>r.BannedLanes).length)),idPill),
+   h(ModuleHero,{s,art:overviewArt(),picking:true,pickTitle:'选择路段',desc:rulesDesc}),
+   h('button',{type:'button',className:'rll-link rll-rangego',onClick:()=>trigger('RoadLaneLock','speedRange',true)},t('按路口选一段改限速 ›')),
+   h(RuleRoadList,{s}),
    fold('图例与说明',h('p',null,'悬停道路高亮，左键选中；已选中时点另一条直接换选，右键退出所选道路。'),h('p',null,'地图：白实线为已设变道管制的方向。按道驶出＝驶出管制路段且途中没变道的车，从本次进游戏算起，打开本页时刷新。')));
  }
 

@@ -59,11 +59,18 @@ namespace RoadLaneLock
    }
   }
 
-  static string Key(RoadRules rules,Entity road)
+  string Key(RoadRules rules,Entity road)
   {
    rules.Speed.TryGetValue(road,out int speed);
    var bans=new System.Text.StringBuilder();
    if(rules.LaneBans.TryGetValue(road,out var map))foreach(var p in map)bans.Append(p.Key).Append(':').Append(p.Value).Append(',');
+   // Where the speed number goes depends on the neighbours' limits too (G38).
+   if(speed>0&&EntityManager.HasComponent<Edge>(road))
+   {
+    var edge=EntityManager.GetComponentData<Edge>(road);
+    foreach(var n in new[]{edge.m_Start,edge.m_End})
+     if(EntityManager.HasBuffer<ConnectedEdge>(n))foreach(var c in EntityManager.GetBuffer<ConnectedEdge>(n,true))if(c.m_Edge!=road){rules.Speed.TryGetValue(c.m_Edge,out int v);bans.Append('n').Append(v);}
+   }
    return speed+"/"+rules.DoubleYellow.Contains(road)+"/"+bans;
   }
 
@@ -112,7 +119,7 @@ namespace RoadLaneLock
      var curve=EntityManager.GetComponentData<Curve>(lane);
      float across=math.min(LaneWidth(lane)*.8f,3f);
      float icon=across*.75f;
-     if(speedArt!=null)any|=Symbol(drawing,speedArt,curve,.22f,across*.9f,across*1.5f);
+     if(speedArt!=null&&SpeedRunStart(rules,road,curve,speed))any|=Symbol(drawing,speedArt,curve,.22f,across*.9f,across*1.5f);
      // 分道: one kind left (motor vehicles) = a reserved lane, its plain pictogram; otherwise each banned kind crossed.
      byte banned=rules.Banned(road,d,i);
      if(banned!=0)
@@ -131,6 +138,29 @@ namespace RoadLaneLock
    }
    if(yellowRoad)any|=CentreLines(rules,road,drawing);
    return any;
+  }
+
+  // G38: the speed number goes only where a stretch with this limit begins for this direction: not when
+  // the lane comes straight from a joined piece of road with the same limit (a plain joint, or the same
+  // road type carrying on through a junction). So each stretch shows it once per direction, at its entry.
+  bool SpeedRunStart(RoadRules rules,Entity road,Curve lane,int speed)
+  {
+   if(!EntityManager.HasComponent<Edge>(road))return true;
+   var edge=EntityManager.GetComponentData<Edge>(road);
+   Entity node=Entity.Null;float best=float.MaxValue;
+   foreach(var n in new[]{edge.m_Start,edge.m_End})
+    if(EntityManager.HasComponent<Node>(n)){float d=math.distancesq(EntityManager.GetComponentData<Node>(n).m_Position,lane.m_Bezier.a);if(d<best){best=d;node=n;}}
+   if(node==Entity.Null||!EntityManager.HasBuffer<ConnectedEdge>(node))return true;
+   var links=EntityManager.GetBuffer<ConnectedEdge>(node,true);
+   var prefab=EntityManager.HasComponent<Game.Prefabs.PrefabRef>(road)?EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(road).m_Prefab:Entity.Null;
+   foreach(var c in links)
+   {
+    var other=c.m_Edge;
+    if(other==road||!rules.Speed.TryGetValue(other,out int v)||v!=speed)continue;
+    if(links.Length==2)return false;
+    if(prefab!=Entity.Null&&EntityManager.HasComponent<Game.Prefabs.PrefabRef>(other)&&EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(other).m_Prefab==prefab)return false;
+   }
+   return true;
   }
 
   // A no-pedestrian sign on every lane driving into the junction, a few metres before the crossing.

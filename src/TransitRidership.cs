@@ -20,7 +20,7 @@ namespace RoadLaneLock
   readonly Dictionary<Entity,HashSet<Entity>> aboard=new Dictionary<Entity,HashSet<Entity>>();
   readonly HashSet<Entity> sampled=new HashSet<Entity>();
   readonly List<Entity> stale=new List<Entity>();
-  EntityQuery query;int monthKey=-1;
+  EntityQuery query;int monthKey=-1,ticks,sinceLog;
 
   protected override void OnCreate()
   {
@@ -58,10 +58,18 @@ namespace RoadLaneLock
     aboard[v]=after;
     if(boarded==0)continue;
     if(!lines.TryGetValue(route,out var c))lines[route]=c=new Count();
-    c.Month+=boarded;
+    c.Month+=boarded;sinceLog+=boarded;
    }
    stale.Clear();foreach(var v in aboard.Keys)if(!sampled.Contains(v))stale.Add(v);
    foreach(var v in stale)aboard.Remove(v);
+   // About every 5 minutes at normal speed: a summary to check the counts against.
+   if(++ticks>=300)
+   {
+    ticks=0;long month=0;foreach(var c in lines.Values)month+=c.Month;
+    Diagnostics.Event("transitRiders",new{Boarded=sinceLog,Vehicles=sampled.Count,Lines=lines.Count,Month=month,MonthKey=monthKey});
+    Mod.Log.Info("线路客流：近一段上车 "+sinceLog+" 人次，"+sampled.Count+" 辆车在跑，"+lines.Count+" 条线路本月共 "+month+" 人次");
+    sinceLog=0;
+   }
   }
 
   // The line a vehicle (or one car of a train) runs on.

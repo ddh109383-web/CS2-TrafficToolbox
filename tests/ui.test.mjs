@@ -60,7 +60,7 @@ state.ViewingVehicles=false;
 state.ToolActive=true;state.Picking=true;assert.match(text(render()),/选择路段/);
 assert.match(text(render()),/还没有设置规则的路段/);
 state.RuleRoads=[{Index:40,Version:2,Name:'江心大道',Mask:3,Directions:3,Detours:2,Speed:50},{Index:41,Version:1,Name:'沙洲南路',Mask:1,Directions:3,Detours:0},{Index:42,Version:1,Name:'乔木园街',Mask:0,Directions:3,Detours:0,Yellow:true,BannedLanes:2,Whole:1}];state.SavedCount=2;state.Detours=2;
-{const t=text(render());assert.match(t,/已设 3 段/);assert.match(t,/禁变道 2/);assert.match(t,/限速 1 段/);assert.match(t,/绕行 2 辆/);assert.match(t,/B 禁变道/);assert.doesNotMatch(t,/可变道/);
+{const t=text(render());assert.match(t,/已设 3 段/);assert.match(t,/禁变道 2/);assert.match(t,/限速 1/);assert.match(t,/绕行 2/);assert.match(t,/B 禁变道/);assert.doesNotMatch(t,/可变道/);
  assert.match(t,/限速 50/);assert.match(t,/双黄线/);assert.match(t,/整段禁私家车/);assert.match(t,/选一段路，设置变道、限速、双黄线、分道/);}
 click('江心大道');assert.deepEqual(JSON.parse(events.at(-1)[2]),{Session:'one',Index:40,Version:2});assert.equal(events.at(-1)[1],'focusRuleRoad');
 state.RuleRoads=null;click('取消选择');assert.equal(events.at(-1)[1],'cancelPick');

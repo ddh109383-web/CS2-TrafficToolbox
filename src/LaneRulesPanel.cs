@@ -46,6 +46,19 @@ namespace RoadLaneLock
     Rules.SetSpeed(road,math.clamp(c.Value,0,200));NoteEffect(road,"限速",c.Value>0);Publish();
    }));
 
+   // G37: speed limit for every road between two junctions.
+   AddBinding(new TriggerBinding<bool>("RoadLaneLock","speedRange",on=>{if(on){laneTab="speed";picker.BeginRange();}else picker.Begin();Publish();}));
+   AddBinding(new TriggerBinding("RoadLaneLock","rangeReset",()=>{picker.ResetRange();Publish();}));
+   AddBinding(new TriggerBinding<string>("RoadLaneLock","setRangeSpeed",json=>{
+    RuleChange c=null;if(json==null||json.Length>512)return;try{c=JsonConvert.DeserializeObject<RuleChange>(json);}catch{return;}
+    if(c==null||c.Session!=session||!picker.RangeMode)return;
+    var roads=RangeRoads();if(roads.Count==0)return;
+    int v=math.clamp(c.Value,0,200);
+    foreach(var road in roads)Rules.SetSpeed(road,v);
+    NoteEffect(roads[0],"限速",v>0);
+    Mod.Log.Info("限速范围 "+roads.Count+" 段："+v);
+    Publish();
+   }));
    AddBinding(new TriggerBinding<string>("RoadLaneLock","setDoubleYellow",json=>{if(ReadChange(json,out var c,out var road)){Rules.SetDoubleYellow(road,c.Enable);NoteEffect(road,"双黄线",c.Enable);Publish();}}));
    // 分道: Value = one vehicle kind bit (RoadRules.Kinds), Enable = banned.
    AddBinding(new TriggerBinding<string>("RoadLaneLock","setLaneBan",json=>{
@@ -76,6 +89,103 @@ namespace RoadLaneLock
    }));
    AddBinding(new TriggerBinding<string>("RoadLaneLock","removeJunction",json=>{if(ReadNode(json,out var c,out var node)){Rules.SetNoCrossing(node,false);Publish();}}));
    AddBinding(new TriggerBinding<string>("RoadLaneLock","focusJunction",json=>{if(ReadNode(json,out var c,out var node))MoveCamera(EntityManager.GetComponentData<Node>(node).m_Position);}));
+  }
+
+  // The roads between the two chosen junctions: shortest way along roads (Dijkstra on length), roads
+  // that keep the start road's name cost less so the search follows the same street. Up to ~10 km.
+  readonly List<Entity> rangeRoads=new List<Entity>();
+  Entity rangeFrom,rangeTo;
+  List<Entity> RangeRoads()
+  {
+   var a=picker.RangeStart;var b=picker.RangeEnd;
+   if(a==rangeFrom&&b==rangeTo&&rangeRoads.TrueForAll(e=>EntityManager.Exists(e)&&!EntityManager.HasComponent<Game.Common.Deleted>(e)))return rangeRoads;
+   rangeFrom=a;rangeTo=b;rangeRoads.Clear();
+   if(a==Entity.Null||b==Entity.Null||!EntityManager.Exists(a)||!EntityManager.Exists(b))return rangeRoads;
+   string preferred=null;
+   var dist=new Dictionary<Entity,float>{[a]=0};var via=new Dictionary<Entity,Entity>();
+   var open=new List<Entity>{a};var done=new HashSet<Entity>();
+   while(open.Count>0)
+   {
+    int bi=0;for(int i=1;i<open.Count;i++)if(dist[open[i]]<dist[open[bi]])bi=i;
+    var node=open[bi];open.RemoveAt(bi);
+    if(!done.Add(node))continue;
+    if(node==b||dist[node]>10000f||done.Count>4000)break;
+    if(!EntityManager.HasBuffer<ConnectedEdge>(node))continue;
+    foreach(var c in EntityManager.GetBuffer<ConnectedEdge>(node,true))
+    {
+     var e=c.m_Edge;
+     if(!RoadInspector.IsRoad(EntityManager,e)||!EntityManager.HasComponent<Edge>(e)||!EntityManager.HasComponent<Curve>(e))continue;
+     var edge=EntityManager.GetComponentData<Edge>(e);
+     var other=edge.m_Start==node?edge.m_End:edge.m_Start;
+     if(done.Contains(other))continue;
+     var name=RoadName(e);
+     float cost=EntityManager.GetComponentData<Curve>(e).m_Length*(preferred!=null&&name!=preferred?1.6f:1f);
+     float d=dist[node]+cost;
+     if(!dist.TryGetValue(other,out var old)||d<old){dist[other]=d;via[other]=e;open.Add(other);}
+    }
+    if(node==a)preferred=NearestName(a,b);
+   }
+   if(!via.ContainsKey(b))return rangeRoads;
+   for(var n=b;n!=a;)
+   {
+    var e=via[n];rangeRoads.Add(e);
+    var edge=EntityManager.GetComponentData<Edge>(e);n=edge.m_Start==n?edge.m_End:edge.m_Start;
+    if(rangeRoads.Count>400){rangeRoads.Clear();break;}
+   }
+   rangeRoads.Reverse();
+   return rangeRoads;
+  }
+  // Name of the road leaving the start junction that points most toward the end junction.
+  string NearestName(Entity a,Entity b)
+  {
+   if(!EntityManager.HasComponent<Node>(a)||!EntityManager.HasComponent<Node>(b)||!EntityManager.HasBuffer<ConnectedEdge>(a))return null;
+   var pa=EntityManager.GetComponentData<Node>(a).m_Position;var toward=math.normalizesafe((EntityManager.GetComponentData<Node>(b).m_Position-pa).xz);
+   string best=null;float score=-2;
+   foreach(var c in EntityManager.GetBuffer<ConnectedEdge>(a,true))
+   {
+    var e=c.m_Edge;if(!RoadInspector.IsRoad(EntityManager,e)||!EntityManager.HasComponent<Curve>(e))continue;
+    var curve=EntityManager.GetComponentData<Curve>(e).m_Bezier;
+    var far=math.distancesq(curve.a,pa)<math.distancesq(curve.d,pa)?curve.d:curve.a;
+    float sc=math.dot(math.normalizesafe((far-pa).xz),toward);
+    if(sc>score){score=sc;best=RoadName(e);}
+   }
+   return best;
+  }
+  object RangeInfo()
+  {
+   string Place(Entity n)=>n!=Entity.Null&&EntityManager.Exists(n)?PlaceName(n):null;
+   var roads=RangeRoads();
+   int speed=-1;float length=0;var names=new List<string>();
+   foreach(var road in roads)
+   {
+    Rules.Speed.TryGetValue(road,out int v);speed=speed<0?v:(speed==v?v:-2);
+    if(EntityManager.HasComponent<Curve>(road))length+=EntityManager.GetComponentData<Curve>(road).m_Length;
+    var n=RoadName(road);if(!string.IsNullOrEmpty(n)&&!names.Contains(n))names.Add(n);
+   }
+   return new{On=true,Hover=Place(picker.HoveredNode),Start=Place(picker.RangeStart),End=Place(picker.RangeEnd),
+    Roads=roads.Count,Length=(int)math.round(length),Names=names.Count>3?names.GetRange(0,3):names,MoreNames=math.max(0,names.Count-3),
+    Speed=speed<0?0:speed,Mixed=speed==-2,Default=roads.Count>0?Rules.DefaultSpeed(roads[0]):0,
+    Missing=picker.RangeStart!=Entity.Null&&picker.RangeEnd!=Entity.Null&&roads.Count==0};
+  }
+  void DrawRangeOverlay()
+  {
+   var buffer=World.GetOrCreateSystemManaged<Game.Rendering.OverlayRenderSystem>().GetBuffer(out var writer);
+   writer.Complete();
+   foreach(var road in RangeRoads())
+    if(EntityManager.HasComponent<EdgeGeometry>(road))
+    {
+     var g=EntityManager.GetComponentData<EdgeGeometry>(road);var mint=new UnityEngine.Color32(129,226,190,210);
+     buffer.DrawCurve(mint,g.m_Start.m_Left,1.4f);buffer.DrawCurve(mint,g.m_End.m_Left,1.4f);buffer.DrawCurve(mint,g.m_Start.m_Right,1.4f);buffer.DrawCurve(mint,g.m_End.m_Right,1.4f);
+    }
+   foreach(var road in Rules.Speed.Keys)if(EntityManager.HasComponent<Curve>(road))buffer.DrawCurve(new UnityEngine.Color32(120,190,255,110),EntityManager.GetComponentData<Curve>(road).m_Bezier,1f);
+   void Ring(Entity node,UnityEngine.Color32 color,float size)
+   {
+    if(node==Entity.Null||!EntityManager.Exists(node)||!EntityManager.HasComponent<Node>(node))return;
+    buffer.DrawCircle(color,new UnityEngine.Color32(color.r,color.g,color.b,30),1.1f,0,new float2(0,1),EntityManager.GetComponentData<Node>(node).m_Position,size);
+   }
+   Ring(picker.HoveredNode,new UnityEngine.Color32(255,255,255,150),22f);
+   Ring(picker.RangeStart,new UnityEngine.Color32(129,226,190,240),24f);
+   Ring(picker.RangeEnd,new UnityEngine.Color32(129,226,190,240),24f);
   }
 
   // Settings of the selected road for the 车道规则 page.

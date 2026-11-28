@@ -514,5 +514,19 @@
  "双黄线封闭后让车辆改道": "Re-route cars when the double yellow line closes a lane",
  "双黄线新封住出入口车道时，已经规划好要走这些车道的车辆立即重新寻路，不再压线驶过。": "When the double yellow line closes a driveway lane, cars already routed through it plan a new route at once instead of crossing the line.",
  "隐藏原版限速刷字": "Hide the game's painted speed numbers",
- "设了限速的路段，隐藏道路自带的限速数字（如 55），只留本模组刷的数字。关闭后恢复原样。": "On roads with a speed limit from this mod, hide the number painted by the road itself (such as 55) and keep only ours. Turning this off shows it again."
+ "设了限速的路段，隐藏道路自带的限速数字（如 55），只留本模组刷的数字。关闭后恢复原样。": "On roads with a speed limit from this mod, hide the number painted by the road itself (such as 55) and keep only ours. Turning this off shows it again.",
+ "按道驶出 {0}": "In lane {0}",
+ "分道 {0}": "Lane access {0}",
+ "按路口选一段": "Pick a stretch by junctions",
+ "按路口选一段改限速 ›": "Set a speed limit from junction to junction ›",
+ "点起点路口": "Click the start junction",
+ "点终点路口": "Click the end junction",
+ "悬停：{0}": "Hovering: {0}",
+ "鼠标悬停路口出现白圈，左键选中；右键退一步": "Hover a junction to ring it, left click to pick it; right click steps back",
+ "这两个路口之间找不到相连的道路，换一个终点试试": "No connected road between these junctions. Try another end.",
+ " 等 {0} 条路": " and more ({0} roads)",
+ "{0} 段 · {1} 米": "{0} segments · {1} m",
+ "现在限速不一致": "limits differ now",
+ "左右拖动即应用到这 {0} 段；拖回原版即取消限速。": "Dragging applies to these {0} segments; drag back to the original to remove the limit.",
+ "返回选单段": "Back to one segment"
 }

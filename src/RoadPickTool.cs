@@ -32,7 +32,14 @@ namespace RoadLaneLock
   {
    Selected=Entity.Null;Hovered=Entity.Null;selecting=true;parked=false;m_ToolSystem.activeTool=this;
    NodeMode=false;HoveredNode=Entity.Null;SelectedNode=Entity.Null;
+   RangeMode=false;RangeStart=Entity.Null;RangeEnd=Entity.Null;
   }
+  // G37 (限速 by range): hover junctions, click the start and then the end; the panel finds the roads between.
+  public bool RangeMode;
+  public Entity RangeStart{get;private set;}
+  public Entity RangeEnd{get;private set;}
+  public void BeginRange(){Begin();RangeMode=true;SelectionRevision++;}
+  public void ResetRange(){RangeStart=Entity.Null;RangeEnd=Entity.Null;SelectionRevision++;}
   // Junction mode (路口规则): hovering/clicking picks the junction node nearest the pointer instead of a road.
   public bool NodeMode;
   public Entity HoveredNode{get;private set;}
@@ -52,7 +59,7 @@ namespace RoadLaneLock
    }
    return best;
   }
-  public void End(){NodeMode=false;HoveredNode=Entity.Null;SelectedNode=Entity.Null;Selected=Entity.Null;if(OwnsTool)m_ToolSystem.activeTool=m_DefaultToolSystem;selecting=false;parked=false;Hovered=Entity.Null;}
+  public void End(){NodeMode=false;RangeMode=false;RangeStart=Entity.Null;RangeEnd=Entity.Null;HoveredNode=Entity.Null;SelectedNode=Entity.Null;Selected=Entity.Null;if(OwnsTool)m_ToolSystem.activeTool=m_DefaultToolSystem;selecting=false;parked=false;Hovered=Entity.Null;}
   // Hand the mouse to the game's default tool and show this object in its info panel.
   private void Park(Entity entity)
   {
@@ -170,6 +177,22 @@ namespace RoadLaneLock
   protected override JobHandle OnUpdate(JobHandle inputDeps)
   {
    // Right click lets go of the chosen road; with nothing chosen it does nothing (close with X / Esc).
+   if(RangeMode)
+   {
+    // Right click steps back: end, then start.
+    if(secondaryApplyAction.WasReleasedThisFrame()){if(RangeEnd!=Entity.Null)RangeEnd=Entity.Null;else if(RangeStart!=Entity.Null)RangeStart=Entity.Null;SelectionRevision++;return inputDeps;}
+    if(OwnsTool)
+    {
+     HoveredNode=GetRaycastResult(out Entity hitNode,out Game.Common.RaycastHit nodeHit)?ResolveNode(hitNode,nodeHit.m_Position):Entity.Null;
+     if(applyAction.WasReleasedThisFrame()&&HoveredNode!=Entity.Null)
+     {
+      if(RangeStart==Entity.Null||RangeEnd!=Entity.Null){RangeStart=HoveredNode;RangeEnd=Entity.Null;}
+      else if(HoveredNode!=RangeStart)RangeEnd=HoveredNode;
+      SelectionRevision++;
+     }
+    }
+    return inputDeps;
+   }
    if(NodeMode)
    {
     if(secondaryApplyAction.WasReleasedThisFrame()){if(SelectedNode!=Entity.Null){SelectedNode=Entity.Null;selecting=true;SelectionRevision++;}return inputDeps;}
