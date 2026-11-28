@@ -10,7 +10,7 @@ $manifest = Get-Content -Raw -LiteralPath (Join-Path $source $manifestName) | Co
 if ($release.Installable -ne $true -or $manifest.OfficialPostProcess -ne $true -or $release.Version -ne $manifest.Version) {
     throw 'Missing approved release or matching official build.'
 }
-$names = @('RoadLaneLock.dll','RoadLaneLock_win_x86_64.dll','RoadLaneLock.mjs','RoadLaneLock.svg','LaneChange.svg','Recorder.svg','Transit.svg','Detour.svg','Parking.svg','RoadPreview.png','MonitorPreview.png','RecordPreview.png')
+$names = @('RoadLaneLock.dll','RoadLaneLock_win_x86_64.dll','RoadLaneLock.mjs','RoadLaneLock.svg','LaneChange.svg','Junction.svg','Recorder.svg','Transit.svg','Detour.svg','Parking.svg','RoadPreview.png','MonitorPreview.png','RecordPreview.png')
 function MatchesBuild([string]$folder) {
     foreach ($name in $names) {
         $file = Join-Path $folder $name
