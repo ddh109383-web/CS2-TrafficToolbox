@@ -23,15 +23,12 @@ namespace RoadLaneLock
   // Closing driveway lanes for the double yellow line also re-plans cars already routed through them.
   [SettingsUISection(Section,Group)]
   public bool DoubleYellowReroute{get;set;}=true;
-  // Hide the game's own painted speed numbers on roads that have our speed limit.
-  [SettingsUISection(Section,Group)]
-  public bool HideVanillaSpeedMarks{get;set;}=true;
   // Translation entry for players: export a template, open the folder where <locale>.json files go.
   [SettingsUIButton,SettingsUISection(Section,LanguageGroup)]
   public bool ExportTranslation{set{var path=L.ExportTemplate();if(path!=null){Mod.Log.Info("翻译模板已导出："+path);L.OpenFolder();}}}
   [SettingsUIButton,SettingsUISection(Section,LanguageGroup)]
   public bool OpenLanguageFolder{set{L.OpenFolder();L.Refresh(true);}}
-  public override void SetDefaults(){HookExecutor=false;AutoOpenTransit=true;ClearParkedOnBan=true;DoubleYellowReroute=true;HideVanillaSpeedMarks=true;}
+  public override void SetDefaults(){HookExecutor=false;AutoOpenTransit=true;ClearParkedOnBan=true;DoubleYellowReroute=true;}
  }
 
  // Settings page text for one game language, from the same tables as the panel (source = Simplified Chinese).
@@ -56,8 +53,6 @@ namespace RoadLaneLock
     {setting.GetOptionDescLocaleID(nameof(Setting.ClearParkedOnBan)),T("开启禁止路边停车后，把这段路边已经停着的车直接清走（和原版删除车辆一样）；读档后也会对已禁停路段清一次。")},
     {setting.GetOptionLabelLocaleID(nameof(Setting.DoubleYellowReroute)),T("双黄线封闭后让车辆改道")},
     {setting.GetOptionDescLocaleID(nameof(Setting.DoubleYellowReroute)),T("双黄线新封住出入口车道时，已经规划好要走这些车道的车辆立即重新寻路，不再压线驶过。")},
-    {setting.GetOptionLabelLocaleID(nameof(Setting.HideVanillaSpeedMarks)),T("隐藏原版限速刷字")},
-    {setting.GetOptionDescLocaleID(nameof(Setting.HideVanillaSpeedMarks)),T("设了限速的路段，隐藏道路自带的限速数字（如 55），只留本模组刷的数字。关闭后恢复原样。")},
     {setting.GetOptionLabelLocaleID(nameof(Setting.HookExecutor)),T("新执行器（测试）")},
     {setting.GetOptionDescLocaleID(nameof(Setting.HookExecutor)),T("开启后不再替换原版车辆导航，改为在原版导航前锁定车道，并按完整路线选择入口车道。旧执行器停用；绕行、市政保底暂不可用。逐车诊断写入 Logs/RoadLaneLock-events.jsonl。")},
     {setting.GetOptionLabelLocaleID(nameof(Setting.ExportTranslation)),T("导出翻译模板")},

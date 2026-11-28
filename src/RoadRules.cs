@@ -542,28 +542,13 @@ namespace RoadLaneLock
    return yes;
   }
   int marksDeleted,lastMarksLogged=-1;
+  // Deleting the marks crashed the game a minute later (a rendering job read the deleted entity),
+  // so it is switched off: roads we touched in 0.3.7-0.3.9 are only handed back to the game.
   void SyncSpeedMarks()
   {
-   wantMarkRoads.Clear();
-   if(Mod.Settings==null||Mod.Settings.HideVanillaSpeedMarks)
-    foreach(var road in Speed.Keys)if(Usable(road))wantMarkRoads.Add(road);
-   stale.Clear();foreach(var road in marksRoads)if(!wantMarkRoads.Contains(road))stale.Add(road);
-   foreach(var road in stale){marksRoads.Remove(road);Regrow(road);}
-   int now=0;
-   foreach(var road in wantMarkRoads)
-   {
-    marksRoads.Add(road);
-    if(!EntityManager.HasBuffer<Game.Objects.SubObject>(road))continue;
-    // Take the mark out of the road's sub-object list first, then delete it (as RoadBuilder does).
-    // Deleting alone left the list pointing at a dead entity, which crashed RoadBuilder and the game.
-    scratch.Clear();
-    var subs=EntityManager.GetBuffer<Game.Objects.SubObject>(road);
-    for(int i=subs.Length-1;i>=0;i--)
-     if(Usable(subs[i].m_SubObject)&&IsSpeedMark(subs[i].m_SubObject)){scratch.Add(subs[i].m_SubObject);subs.RemoveAt(i);}
-    foreach(var o in scratch){EntityManager.AddComponent<Deleted>(o);now++;}
-   }
-   marksDeleted+=now;
-   if(now>0&&marksDeleted!=lastMarksLogged){lastMarksLogged=marksDeleted;Diagnostics.Event("speedMarksDeleted",new{Now=now,Total=marksDeleted,Roads=marksRoads.Count});Mod.Log.Info("删除原版限速刷字 "+now+" 个（累计 "+marksDeleted+"，"+marksRoads.Count+" 段路）");}
+   if(marksRoads.Count==0)return;
+   foreach(var road in marksRoads)Regrow(road);
+   marksRoads.Clear();
   }
   // Let the game place a road's own markings again.
   void Regrow(Entity road){if(Usable(road)&&!EntityManager.HasComponent<Updated>(road))EntityManager.AddComponent<Updated>(road);}
@@ -655,7 +640,7 @@ namespace RoadLaneLock
   protected override void OnGameLoadingComplete(Purpose purpose,GameMode mode)
   {
    base.OnGameLoadingComplete(purpose,mode);
-   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();marksRoads.Clear();Suspended=false;applied=-1;Revision++;
+   speedOwned.Clear();bikeOwned.Clear();forbidOwned.Clear();publicOwned.Clear();crossingOwned.Clear();marksRoads.Clear();marksRoads.UnionWith(Speed.Keys);Suspended=false;applied=-1;Revision++; // give back marks a 0.3.7-0.3.9 save may lack
    Diagnostics.Event("roadRulesLoaded",new{Speed=Speed.Count,NoBikes=NoBikes.Count,LaneBanRoads=LaneBans.Count,DoubleYellow=DoubleYellow.Count,NoCrossing=NoCrossing.Count});
   }
 
